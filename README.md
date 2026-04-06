@@ -3,6 +3,8 @@
 
 Welcome to the official repository for **Unblur-SLAM**, a novel RGB SLAM pipeline designed for sharp 3D reconstruction from blurred image inputs. 
 
+📄 **Paper:** [Unblur-SLAM (arXiv)](https://arxiv.org/pdf/2603.26810)
+
 ## 📖 Overview
 <img width="700" height="266" alt="unblur-slam-overview" src="https://github.com/user-attachments/assets/663d569b-5269-4e7d-b488-709e16c2b130" />
 
