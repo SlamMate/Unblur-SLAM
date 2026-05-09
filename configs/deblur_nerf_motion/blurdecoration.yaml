@@ -1,0 +1,6 @@
+inherit_from: ./configs/deblur_nerf_motion/deblur_nerf_motion.yaml
+scene: blurdecoration
+
+cam:
+  fx: 418.84960945
+  fy: 418.84960945

@@ -1,0 +1,117 @@
+name: EVSSM
+model_type: ImageRestorationModel
+scale: 1
+num_gpu: 3
+manual_seed: 42
+
+datasets:
+  train:
+    name: gopro-train
+    type: PairedImageDataset
+    dataroot_gt: /var/scratch/qzhang2/Deblur-SLAM/thirdparty/EVSSM/download/Go_pro_defocus/train/sharp_crops.lmdb
+    dataroot_lq: /var/scratch/qzhang2/Deblur-SLAM/thirdparty/EVSSM/download/Go_pro_defocus/train/blur_crops.lmdb
+
+    filename_tmpl: '{}'
+    io_backend:
+      type: lmdb
+
+    gt_size: 128
+    use_flip: true
+    use_rot: true
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 8
+    # batch_size_per_gpu: 8
+    # 一个图像为一个batch，tum中一个图像被剪成6份，而replica或者RED数据集是8份
+    # batch_size_per_gpu: 6
+    # 一个图像为一个batch，scannet中一个图像被剪成16份，而replica或者RED数据集是8份
+    # batch_size_per_gpu: 15
+    # 一个图像为一个batch，scannet中一个图像被剪成15份和6份，high reso的是15份
+    batch_size_per_gpu: 6
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+
+  val:
+    name: gopro-test
+    type: PairedImageDataset
+    dataroot_gt: /var/scratch/qzhang2/Deblur-SLAM/thirdparty/EVSSM/download/GoPro_scannet_expand/test/target.lmdb
+    dataroot_lq: /var/scratch/qzhang2/Deblur-SLAM/thirdparty/EVSSM/download/GoPro_scannet_expand/test/input.lmdb
+    io_backend:
+      type: lmdb
+
+
+network_g:
+  type: EVSSM
+  inp_channels: 3
+  out_channels: 3
+  dim: 48
+  num_blocks: [6,6,12]
+  ffn_expansion_factor: 3
+  bias: False
+
+
+# path
+path:
+  pretrain_network_g: /var/scratch/qzhang2/Deblur-SLAM/pretrained/net_g_latest_batch_8_no_NYU.pth
+  strict_load_g:
+  resume_state:
+
+# training settings
+train:
+  optim_g:
+    type: AdamW
+    lr: !!float 1e-7
+    weight_decay: !!float 1e-3
+    betas: [0.9, 0.9]
+
+  scheduler:
+    type: TrueCosineAnnealingLR
+    # T_max: 500000
+    T_max: 300000
+    eta_min: !!float 1e-7
+
+  # T_max: 300000
+  total_iter: 300000
+  warmup_iter: -1 # no warm up
+
+  # losses
+  pixel_opt:
+    type: L1Loss
+    loss_weight: 1.0
+    reduction: mean
+
+  fft_loss_opt:
+    type: FFTLoss
+    loss_weight: 0.1
+    reduction: mean
+
+# validation settings
+val:
+  val_freq: !!float 1e3
+  save_img: False
+
+
+  metrics:
+    psnr: # metric name, can be arbitrary
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+    ssim:
+      type: calculate_ssim
+      crop_border: 0
+      test_y_channel: false
+
+# logging settings
+logger:
+  print_freq: 1000
+  save_checkpoint_freq: !!float 6e3
+  use_tb_logger: true
+  wandb:
+    project: ~
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500

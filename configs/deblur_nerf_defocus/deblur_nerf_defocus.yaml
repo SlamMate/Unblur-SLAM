@@ -1,0 +1,73 @@
+# Base config for the Deblur-NeRF defocus-blur subset (Ma et al., 2022).
+# Per-scene yaml files in this folder only need to set `scene` and `cam.fx/fy`.
+dataset: deblur_nerf_defocus
+
+composite_blur: false
+clear_init: false
+sharp_judge: false
+sharp_loss_weight: true
+sharp_loss_weight_value: 2.0
+n_virtual_cams: 7
+averaged_frames: 36
+added_frames: 8
+adjust_cam: true
+apply_inverse_gamma: false
+backend_compensation: true
+exam_blur_score: true
+fake_sharp: true
+final_visual_frames_ba: false
+interpolation: linear
+realtime_pose_sync: false
+
+deblur:
+  open: true
+  ks1: 3
+  ks2: 5
+  ks3: 9
+  ks_ss: 3
+  mlp_lr: 5.0e-6
+  not_use_pe: false
+  not_use_rgbd: false
+
+cam:
+  H: 400
+  W: 600
+  H_edge: 0
+  W_edge: 0
+  H_out: 400
+  W_out: 600
+  cx: 300.0
+  cy: 200.0
+  png_depth_scale: 1.0
+
+mapping:
+  Calibration:
+    depth_scale: 1.0
+    distorted: false
+  Training:
+    edge_threshold: 4
+
+tracking:
+  buffer: 400
+  beta: 0.6
+  warmup: 4
+  mono_thres: false
+  motion_filter:
+    thresh: 0.5
+  frontend:
+    keyframe_thresh: 2.25
+    radius: 2
+    max_factors: 100
+    window: 50
+    thresh: 25.0
+  backend:
+    BA_type: DSPO
+    normalize: true
+    ba_freq: 10
+    loop_window: 50
+    loop_nms: 25
+
+data:
+  dataset_root: ./datasets/real_defocus_blur
+  input_folder: ./datasets/real_defocus_blur
+  output: ./output

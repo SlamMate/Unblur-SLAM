@@ -1,0 +1,26 @@
+# Base config for I2-SLAM rendering evaluation on TUM-RGBD.
+# Used to reproduce Table tab:tum_psnr (PSNR on the I2-SLAM-annotated keyframes).
+inherit_from: ./configs/TUM_RGBD/tum.yaml
+dataset: tumrgbd
+
+n_virtual_cams: 5
+averaged_frames: 36
+added_frames: 8
+sharp_judge: true
+sharp_loss_weight: true
+sharp_loss_weight_value: 1.1
+exam_blur_score: true
+fake_sharp: true
+adjust_cam: true
+backend_compensation: true
+
+deblur:
+  open: true
+  ks1: 3
+  ks2: 5
+  ks3: 9
+  ks_ss: 3
+  mlp_lr: 5.0e-6
+
+tracking:
+  warmup: 4

@@ -1,0 +1,6 @@
+inherit_from: ./configs/deblur_nerf_motion/deblur_nerf_motion.yaml
+scene: blurbuick
+
+cam:
+  fx: 414.731792126
+  fy: 414.731792126

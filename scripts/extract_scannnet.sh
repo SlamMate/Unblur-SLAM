@@ -1,0 +1,4 @@
+#  python ./ScanNet/SensReader/python/reader.py --filename ./datasets/scans/scene0024_01/scene0024_01.sens --output_path ./datasets/scans/scene0024_01
+# python ./ScanNet/SensReader/python/reader.py --filename ./datasets/scans/scene0031_00/scene0031_00.sens --output_path ./datasets/scans/scene0031_00
+python ./ScanNet/SensReader/python/reader.py --filename ./datasets/scans_test/scene0736_00/scene0736_00.sens --output_path ./datasets/scans_test/scene0736_00
+python ./ScanNet/SensReader/python/reader.py --filename ./datasets/scans_test/scene0785_00/scene0785_00.sens --output_path ./datasets/scans_test/scene0785_00

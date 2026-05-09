@@ -1,0 +1,52 @@
+# exblurf_motion 数据集基础配置
+# 被 bench, blurball, blurbasket 等场景继承 (sharp_weight2_5e-5)
+# Inherits from unblur_slam.yaml automatically (via run.py default_path).
+dataset: exblurf_motion
+composite_blur: False
+clear_init: False
+sharp_judge: False
+sharp_loss_weight: False
+n_virtual_cams: 7
+
+data:
+  dataset_root: ./datasets/exblurf_camera_motion_blur
+  input_folder: ./datasets/exblurf_camera_motion_blur
+  output: .
+
+cam:
+  H: 540
+  W: 800
+  H_edge: 0
+  W_edge: 0
+  H_out: 400
+  W_out: 592
+  cx: 401.5
+  cy: 269.0
+  fx: 1499.9996848067046
+  fy: 1499.5426525018738
+  png_depth_scale: 1.0
+
+deblur:
+  mlp_lr: 5e-3
+
+mapping:
+  Training:
+    edge_threshold: 4
+
+tracking:
+  buffer: 400
+  beta: 0.6
+  warmup: 4
+  mono_thres: false
+  motion_filter:
+    thresh: 0.5
+  frontend:
+    keyframe_thresh: 2.25
+    radius: 2
+    max_factors: 100
+    window: 50
+    thresh: 25.0
+  backend:
+    loop_window: 50
+    loop_nms: 25
+    ba_freq: 10

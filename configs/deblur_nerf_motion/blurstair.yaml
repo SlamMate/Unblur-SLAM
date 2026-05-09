@@ -1,0 +1,6 @@
+inherit_from: ./configs/deblur_nerf_motion/deblur_nerf_motion.yaml
+scene: blurstair
+
+cam:
+  fx: 416.96130289
+  fy: 416.96130289

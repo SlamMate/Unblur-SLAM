@@ -1,0 +1,14 @@
+inherit_from: ./configs/MCD/mcd.yaml
+scene: mcd_hcd_nosync_s1r06
+
+data:
+  input_folder: mcd_hcd_nosync_s1r06
+
+cam:
+  H: 480 
+  W: 640 
+  fx: 601.201204
+  fy: 601.295265
+  cx: 316.239089
+  cy: 238.101202
+  distortion: [0.135346, -0.277374, 0.0, 0.0, 0.0]

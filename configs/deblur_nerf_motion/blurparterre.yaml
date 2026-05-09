@@ -1,0 +1,6 @@
+inherit_from: ./configs/deblur_nerf_motion/deblur_nerf_motion.yaml
+scene: blurparterre
+
+cam:
+  fx: 418.95973234
+  fy: 418.95973234

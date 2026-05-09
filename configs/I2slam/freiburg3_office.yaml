@@ -1,0 +1,12 @@
+inherit_from: ./configs/I2slam/i2slam.yaml
+scene: freiburg3_office
+
+data:
+  input_folder: rgbd_dataset_freiburg3_long_office_household
+cam:
+  H: 480
+  W: 640
+  fx: 535.4
+  fy: 539.2
+  cx: 320.1
+  cy: 247.6

@@ -1,0 +1,6 @@
+inherit_from: ./configs/deblur_nerf_motion/deblur_nerf_motion.yaml
+scene: blurcoffee
+
+cam:
+  fx: 418.600657729626
+  fy: 418.600657729626

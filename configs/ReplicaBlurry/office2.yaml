@@ -1,0 +1,8 @@
+inherit_from: configs/ReplicaBlurry/replica.yaml
+scene: office2
+
+
+meshing:
+  gt_mesh_path: ./datasets/cull_replica_mesh/office2.ply
+data:
+  input_folder: ./datasets/replica_blur/office_2

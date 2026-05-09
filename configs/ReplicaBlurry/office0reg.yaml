@@ -1,0 +1,11 @@
+inherit_from: configs/ReplicaBlurry/replica.yaml
+scene: office0
+mapping:
+  opt_params:
+    lambda_rot_smooth: 0.001
+    lambda_trans_smooth: 0.001
+
+meshing:
+  gt_mesh_path: ./datasets/cull_replica_mesh/office0.ply
+data:
+  input_folder: ./datasets/replica_blur/office_0

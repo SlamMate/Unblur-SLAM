@@ -1,0 +1,6 @@
+inherit_from: ./configs/deblur_nerf_defocus/deblur_nerf_defocus.yaml
+scene: defocuscisco
+
+cam:
+  fx: 418.154725619
+  fy: 418.154725619

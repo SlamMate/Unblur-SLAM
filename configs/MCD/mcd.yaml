@@ -1,0 +1,58 @@
+# Copyright 2024 Google LLC
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     https://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+dataset: 'mcd'
+n_virtual_cams: 5
+
+evssm_checkpoint: "./pretrained/evssm/net_g_latest.pth"
+
+mapping:
+  Training:
+    window_size: 8
+    pose_window: 3
+    edge_threshold: 1.1
+    rgb_boundary_threshold: 0.01
+
+    kf_translation: 0.08
+    kf_min_translation: 0.05
+    kf_overlap: 0.9
+    kf_cutoff: 0.3
+  Calibration:
+    depth_scale: 5000.0
+tracking:
+  buffer: 1000
+  warmup: 12
+  multiview_filter:
+    visible_num: 2  
+  frontend:
+    keyframe_thresh: 3.0
+    radius: 2
+  backend:
+    loop_nms: 10
+    BA_type: "DBA"
+    normalize: False
+
+cam:  #NOTE: intrinsic is different per scene in TUM
+  # refer to https://vision.in.tum.de/data/datasets/rgbd-dataset/file_formats#intrinsic_camera_calibration_of_the_kinect
+  # might not correct
+  png_depth_scale: 5000.0 #for depth image in png format
+  ### target/output camera settings, camera_size -> resize -> crop -> target_size
+  H_edge: 8
+  W_edge: 8
+  H_out: 384
+  W_out: 512
+
+data:
+  dataset_root: ./datasets/MCD
+  output: ./output/MCD

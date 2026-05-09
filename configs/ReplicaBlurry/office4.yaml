@@ -1,0 +1,11 @@
+inherit_from: configs/ReplicaBlurry/replica.yaml
+scene: office4
+
+tracking:
+  frontend:
+    keyframe_thresh: 2.75 
+
+meshing:
+  gt_mesh_path: ./datasets/cull_replica_mesh/office4.ply
+data:
+  input_folder: ./datasets/replica_blur/office_4

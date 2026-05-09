@@ -1,0 +1,2 @@
+inherit_from: configs/exblurf_motion/exblurf_motion.yaml
+scene: bench

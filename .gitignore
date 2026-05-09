@@ -1,0 +1,97 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+*.swp
+*.swo
+*~
+
+# --- Disabled embedded git metadata (preserved locally, not pushed) ---
+**/.git.embedded-disabled/
+.git.broken-original-splat-slam/
+
+# --- Pre-trained model weights (ship via Hugging Face, not Git) ---
+pretrained/*.pth
+pretrained/*.pt
+pretrained/*.ckpt
+pretrained/*.safetensors
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+# but allow text descriptors / placeholders in pretrained/
+!pretrained/.gitkeep
+!pretrained/README.md
+
+# --- Datasets (never commit raw data) ---
+datasets/
+data/
+*.bag
+
+# --- Experiment artifacts: kept locally, never pushed ---
+# Top-level only — leading `/` anchors to repo root so e.g. configs/MCD/ stays tracked.
+/output/
+/logs/
+/log/
+/wandb/
+/runs/
+/history_other/
+/sharp_weight2_5e-5/
+/sharpweigt10/
+/no_deblur_no_refine/
+/no_refine/
+/tracking/
+/teaser/
+/MCD/
+/rebuttal/
+/exp/
+/experiments/
+/cull_replica_mesh/
+ate_rmse_results*
+blur_detection_*.csv
+comparison*.png
+keyframeidx.txt
+SUMMARY
+
+# --- Per-run / large helper outputs ---
+*.tmp
+*.log
+*.npy.gz
+*.mp4
+**/cfg.yaml.bak
+*.code-workspace
+
+# --- LaTeX / paper assets (kept locally) ---
+author-kit-CVPR2026-v1-latex- 2/
+*.aux
+*.bbl
+*.blg
+*.synctex.gz
+
+# --- Heavy thirdparty assets / unused vendored snapshots ---
+thirdparty/gaussian-splatting_origin/
+thirdparty/diff-gaussian-rasterization/
+thirdparty/**/*.gif
+src/depth-anything_v3/assets/images/*.gif
+
+# --- IDE / merge cruft ---
+*.orig
+*.rej
+
+# --- Backups of remote files (preserved while we merge histories) ---
+README.md.remote-original

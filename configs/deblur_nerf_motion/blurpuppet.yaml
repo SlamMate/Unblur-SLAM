@@ -1,0 +1,6 @@
+inherit_from: ./configs/deblur_nerf_motion/deblur_nerf_motion.yaml
+scene: blurpuppet
+
+cam:
+  fx: 417.134445876
+  fy: 417.134445876
