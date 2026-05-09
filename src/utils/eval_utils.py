@@ -319,9 +319,16 @@ def eval_rendering(
     cal_lpips = LearnedPerceptualImagePatchSimilarity(
         net_type="alex", normalize=True
     ).to("cuda")
-    # 初始化无参考图像质量评估模型
-    qalign_model = pyiqa.create_metric('qalign', device='cuda')
-    niqe_model = pyiqa.create_metric('niqe', device='cuda')
+    # No-reference IQA metrics. Disable with UNBLUR_SKIP_NR_IQA=1 (e.g. on a 24
+    # GB GPU where the QAlign LLaMA backbone OOMs alongside the SLAM state).
+    skip_nr_iqa = os.environ.get("UNBLUR_SKIP_NR_IQA", "").lower() in ("1", "true", "yes")
+    if skip_nr_iqa:
+        print("[eval_rendering] UNBLUR_SKIP_NR_IQA=1 -> skipping QAlign+NIQE")
+        qalign_model = None
+        niqe_model = None
+    else:
+        qalign_model = pyiqa.create_metric('qalign', device='cuda')
+        niqe_model = pyiqa.create_metric('niqe', device='cuda')
     if mesh:
         volume = o3d.pipelines.integration.ScalableTSDFVolume(
             voxel_length=5.0 / 512.0,
@@ -421,14 +428,18 @@ def eval_rendering(
             # 将图像转换为适合pyiqa的格式 [B, C, H, W]
             gt_img_batch = gt_image.unsqueeze(0)
             render_img_batch = image.unsqueeze(0)
-            # QAlign
-            qalign_input = qalign_model(gt_img_batch).item()
-            qalign_render = qalign_model(render_img_batch).item()
-            qalign_ratio = qalign_input / (qalign_render + 1e-8)
-            # NIQE
-            niqe_input = niqe_model(gt_img_batch).item()
-            niqe_render = niqe_model(render_img_batch).item()
-            niqe_ratio = niqe_input / (niqe_render + 1e-8)
+            if qalign_model is not None:
+                qalign_input = qalign_model(gt_img_batch).item()
+                qalign_render = qalign_model(render_img_batch).item()
+                qalign_ratio = qalign_input / (qalign_render + 1e-8)
+            else:
+                qalign_input = qalign_render = qalign_ratio = float('nan')
+            if niqe_model is not None:
+                niqe_input = niqe_model(gt_img_batch).item()
+                niqe_render = niqe_model(render_img_batch).item()
+                niqe_ratio = niqe_input / (niqe_render + 1e-8)
+            else:
+                niqe_input = niqe_render = niqe_ratio = float('nan')
             qalign_input_array.append(qalign_input)
             qalign_render_array.append(qalign_render)
             qalign_ratio_array.append(qalign_ratio)

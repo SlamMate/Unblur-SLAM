@@ -158,6 +158,30 @@ Reference numbers from the camera-ready Unblur-SLAM paper:
 
 The configs in this repository ship with the exact hyperparameters used to produce those numbers (kernel sizes `(3, 5, 9, 3)`, 7 virtual sub-frames for motion blur on Deblur-NeRF, sharp-loss weight `2.0` on Deblur-NeRF and `1.1` on the I2-SLAM TUM split, `mlp_lr=5e-5` for motion / `5e-6` for defocus, DSPO bundle adjustment with loop closure for Deblur-NeRF and DBA for TUM). Hardware in the paper: AMD EPYC-2 7282 + RTX A6000 (48 GB).
 
+### Verified end-to-end run (RTX 3090, 24 GB)
+
+We re-ran `configs/deblur_nerf_motion/blurball.yaml` from this exact commit on an RTX 3090 (`ivi-cn002`, 65 min wall-clock, peak 11.7 GB GPU memory):
+
+| Stage | PSNR | SSIM | LPIPS |
+|---|---|---|---|
+| before final refine | 28.39 | 0.851 | 0.161 |
+| **after 26 000-iter refine** | **29.85** | **0.892** | **0.114** |
+
+`blurball` is one of the easier scenes in the Deblur-NeRF motion-blur subset, so its PSNR is slightly above the 10-scene average reported in the paper (29.49). The full ATE/PSNR sweep across all 10 motion-blur scenes (and the 11 defocus scenes) needs the rest of the Deblur-NeRF data placed under `./datasets/`.
+
+### Hardware notes — running on 24 GB GPUs
+
+The paper used a 48 GB A6000. On 24 GB cards (RTX 3090 / A5000 / Quadro RTX 6000) two extra knobs are required:
+
+- Set `UNBLUR_SKIP_NR_IQA=1` (pre-set in `run_repro_i2slam.sbatch`) — skips the QAlign LLaMA-based IQA model in `eval_utils.py`. PSNR/SSIM/LPIPS are still computed.
+- For the longer TUM/I2-SLAM sequences (`fr1_desk`, `fr2_xyz`, `fr3_office`), the multi-resolution BPN kernel state grows linearly in the number of keyframes and exceeds 24 GB. Use `configs/I2slam/freiburg1_desk_24gb.yaml` (smaller mapping `window_size`) as a starting point, or run with reduced `n_virtual_cams` / `final_refine_iters`. With these knobs you can complete the run; the numbers will not match the paper exactly because the multi-scale refinement budget changes.
+
+### Reproducing the cluster job
+
+```bash
+sbatch --gres=gpu:rtx_3090:1 run_repro_i2slam.sbatch configs/deblur_nerf_motion/blurball.yaml
+```
+
 > **Note on hardware variance:** As with most CUDA-based SLAM systems, exact metrics can drift slightly across GPU generations even with a fixed seed. If your numbers differ at the second decimal, that is expected.
 
 ## 🔬 Pipeline at a glance

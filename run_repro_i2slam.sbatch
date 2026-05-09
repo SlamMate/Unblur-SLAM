@@ -22,6 +22,8 @@ export HF_HOME="${HF_HOME:-/ivi/zfs/s0/original_homes/qzhang/BAGS-SLAM/.cache/hu
 mkdir -p "$TRANSFORMERS_CACHE" "$HF_HOME"
 # 24 GB cards (3090/A5000) need a friendlier allocator vs paper's A6000 (48 GB).
 export PYTORCH_CUDA_ALLOC_CONF="max_split_size_mb:128"
+# QAlign (LLaMA-based IQA) doesn't fit on 24 GB alongside the SLAM state -- skip it.
+export UNBLUR_SKIP_NR_IQA=1
 
 echo "[$(date)] node=$(hostname) gpu=$(nvidia-smi -L | head -1)"
 echo "[$(date)] python=$(which python)"
