@@ -33,7 +33,10 @@ from torchvision.transforms import Compose
 from src.depth_anything_v2.util.transform import Resize, NormalizeImage, PrepareForNet
 import sys
 sys.path.insert(0, './src/depth-anything_v3/src')
-from depth_anything_3.api import DepthAnything3
+try:
+    from depth_anything_3.api import DepthAnything3
+except (ImportError, ModuleNotFoundError):
+    DepthAnything3 = None  # only needed for mono_prior.depth in {anydepth_v3, anydepth_v3_metric}
 
 
 def get_mono_depth_estimator(cfg):

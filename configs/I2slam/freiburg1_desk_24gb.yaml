@@ -1,0 +1,4 @@
+inherit_from: ./configs/I2slam/freiburg1_desk.yaml
+mapping:
+  Training:
+    window_size: 5

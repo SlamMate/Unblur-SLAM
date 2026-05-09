@@ -68,6 +68,6 @@ tracking:
     loop_nms: 25
 
 data:
-  dataset_root: ./datasets/real_camera_motion_blur
-  input_folder: ./datasets/real_camera_motion_blur
+  dataset_root: ./datasets
+  input_folder: real_camera_motion_blur
   output: ./output

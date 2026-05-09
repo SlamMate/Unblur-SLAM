@@ -13,12 +13,14 @@
 # limitations under the License.
 
 verbose: True
-stride: 1            # use every X image from the dataset 
+stride: 1            # use every X image from the dataset
 max_frames: -1       # use the first X images from the dataset, -1 means using all
 only_tracking: False # only do tracking without mapping if enabled
 setup_seed: 43
 device: "cuda:0"
 interpolation: 'linear'
+blur_threshold: 0.81  # ARNIQA-CSIQ threshold for the 'super' sensitivity mode of BlurDetector
+warmup_mapper: False  # if True, send accumulated warm-up keyframes to mapper before main loop
 
 n_virtual_cams: 1
 averaged_frames: 36

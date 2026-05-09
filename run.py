@@ -38,7 +38,7 @@ if __name__ == '__main__':
     parser.add_argument("--only_tracking", action="store_true", help="Only tracking is triggered")
     args = parser.parse_args()
 
-    torch.multiprocessing.set_start_method('spawn')
+    torch.multiprocessing.set_start_method('spawn', force=True)
 
     cfg = config.load_config(
         args.config, './configs/unblur_slam.yaml'

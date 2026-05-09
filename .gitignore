@@ -95,3 +95,10 @@ src/depth-anything_v3/assets/images/*.gif
 
 # --- Backups of remote files (preserved while we merge histories) ---
 README.md.remote-original
+
+# --- Local caches and run-time artifacts ---
+.cache/
+output/
+folder1_retry/
+folder2_retry/
+folder*_v[0-9]*/

@@ -69,7 +69,6 @@ def render(
         campos=viewpoint_camera.camera_center,
         prefiltered=False,
         debug=False,
-        antialiasing=False
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
@@ -206,7 +205,6 @@ def render_virtual(
         campos=viewpoint_camera.camera_center_custom(R,t),
         prefiltered=False,
         debug=False,
-        antialiasing=False
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
