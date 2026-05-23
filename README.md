@@ -6,6 +6,8 @@ Welcome to the official repository for **Unblur-SLAM**, a novel RGB SLAM pipelin
 
 📄 **Paper:** [Unblur-SLAM (arXiv)](https://arxiv.org/pdf/2603.26810)
 
+🎬 **Video:** [YouTube](https://www.youtube.com/watch?v=d6pvaMJU2pE&t=174s), [Bilibili](https://www.bilibili.com/video/BV1ZMG66GEjC/?spm_id_from=333.1387.homepage.video_card.click&vd_source=416f67ad5bdfa2fa2c6f4bc0abfd399c)
+
 > Qi Zhang, Denis Rozumny, Francesco Girlanda, Sezer Karaoglu, Marc Pollefeys, Theo Gevers, Martin R. Oswald.
 > *Unblur-SLAM: Dense Neural SLAM for Blurry Inputs.* CVPR 2026.
 
@@ -14,7 +16,7 @@ Welcome to the official repository for **Unblur-SLAM**, a novel RGB SLAM pipelin
 
 In contrast to previous work, Unblur-SLAM is capable of handling different types of blur and demonstrates state-of-the-art performance in the presence of both motion blur and defocus blur.
 
-Our system intelligently adjusts its computational effort based on the amount of blur detected in the input image. By treating sharp and blurry frames separately and skipping costly refinements for sharp frames, it avoids the significant slowdowns typical of previous blur-aware SLAM approaches.
+Our system intelligently adjusts its computational effort based on the amount of blur detected in the input image. By treating sharp and blurry frames separately and skipping costly refinements fo[...]
 
 ## 🚀 Release Plan
 
@@ -48,7 +50,7 @@ Please star or watch this repository to stay updated on our progress!
    python -c "import torch; print('cuda:', torch.cuda.is_available())"
    ```
 
-4. **Patch the Gaussian rasterizer near plane.** In our monocular setting the global scale is ambiguous, so we lower the rasterizer's near plane from `0.2` to `0.001`. Edit `thirdparty/diff-gaussian-rasterization-w-pose/cuda_rasterizer/auxiliary.h:154` so the line reads:
+4. **Patch the Gaussian rasterizer near plane.** In our monocular setting the global scale is ambiguous, so we lower the rasterizer's near plane from `0.2` to `0.001`. Edit `thirdparty/diff-gaussi[...]
    ```c
    if (p_view.z <= 0.001f)
    ```
@@ -82,7 +84,7 @@ Please star or watch this repository to stay updated on our progress!
        ├── net_g_latest.pth            # EVSSM deblurring weights (motion + defocus)
        └── net_g_realblur_j.pth        # optional: RealBlur_J variant
    ```
-   The `droid.pth` and `omnidata_dpt_depth_v2.ckpt` come from the original Splat-SLAM [Google Drive bundle](https://drive.google.com/file/d/1oZbVPrubtaIUjRRuT8F-YjjHBW-1spKT/view?usp=drive_link); the EVSSM checkpoints come from our [Hugging Face checkpoints repo](https://huggingface.co/qizhangslam/Unblur-SLAM-checkpoints).
+   The `droid.pth` and `omnidata_dpt_depth_v2.ckpt` come from the original Splat-SLAM [Google Drive bundle](https://drive.google.com/file/d/1oZbVPrubtaIUjRRuT8F-YjjHBW-1spKT/view?usp=drive_link); [...]
 
 ## 🗄️ Datasets
 
@@ -103,7 +105,7 @@ bash scripts/download_tum.sh
 Then place them at `datasets/tum/rgbd_dataset_freiburg{1_desk,2_xyz,3_long_office_household}/`.
 
 ### Replica, ScanNet, ReplicaBlurry, MCD, ArchViz, exblurf
-Configs for these auxiliary benchmarks live under `configs/Replica/`, `configs/Scannet/`, `configs/ReplicaBlurry/`, `configs/MCD/`, and `configs/exblurf_motion/`. Helper download scripts are in `scripts/` (Replica, TUM, ScanNet).
+Configs for these auxiliary benchmarks live under `configs/Replica/`, `configs/Scannet/`, `configs/ReplicaBlurry/`, `configs/MCD/`, and `configs/exblurf_motion/`. Helper download scripts are in `[...]
 
 ## ▶️ Run
 
@@ -156,7 +158,7 @@ Reference numbers from the camera-ready Unblur-SLAM paper:
 | TUM tracking (Tab. 3, mean over 19 sequences) | ATE RMSE [m] | **0.336** |
 | MCD tracking (Tab. 3, mean over 57 sequences) | ATE RMSE [m] | **0.128** |
 
-The configs in this repository ship with the exact hyperparameters used to produce those numbers (kernel sizes `(3, 5, 9, 3)`, 7 virtual sub-frames for motion blur on Deblur-NeRF, sharp-loss weight `2.0` on Deblur-NeRF and `1.1` on the I2-SLAM TUM split, `mlp_lr=5e-5` for motion / `5e-6` for defocus, DSPO bundle adjustment with loop closure for Deblur-NeRF and DBA for TUM). Hardware in the paper: AMD EPYC-2 7282 + RTX A6000 (48 GB).
+The configs in this repository ship with the exact hyperparameters used to produce those numbers (kernel sizes `(3, 5, 9, 3)`, 7 virtual sub-frames for motion blur on Deblur-NeRF, sharp-loss weig[...]
 
 ### Verified end-to-end run (RTX 3090, 24 GB)
 
@@ -167,14 +169,14 @@ We re-ran `configs/deblur_nerf_motion/blurball.yaml` from this exact commit on a
 | before final refine | 28.39 | 0.851 | 0.161 |
 | **after 26 000-iter refine** | **29.85** | **0.892** | **0.114** |
 
-`blurball` is one of the easier scenes in the Deblur-NeRF motion-blur subset, so its PSNR is slightly above the 10-scene average reported in the paper (29.49). The full ATE/PSNR sweep across all 10 motion-blur scenes (and the 11 defocus scenes) needs the rest of the Deblur-NeRF data placed under `./datasets/`.
+`blurball` is one of the easier scenes in the Deblur-NeRF motion-blur subset, so its PSNR is slightly above the 10-scene average reported in the paper (29.49). The full ATE/PSNR sweep across all [...]
 
 ### Hardware notes — running on 24 GB GPUs
 
 The paper used a 48 GB A6000. On 24 GB cards (RTX 3090 / A5000 / Quadro RTX 6000) two extra knobs are required:
 
 - Set `UNBLUR_SKIP_NR_IQA=1` (pre-set in `run_repro_i2slam.sbatch`) — skips the QAlign LLaMA-based IQA model in `eval_utils.py`. PSNR/SSIM/LPIPS are still computed.
-- For the longer TUM/I2-SLAM sequences (`fr1_desk`, `fr2_xyz`, `fr3_office`), the multi-resolution BPN kernel state grows linearly in the number of keyframes and exceeds 24 GB. Use `configs/I2slam/freiburg1_desk_24gb.yaml` (smaller mapping `window_size`) as a starting point, or run with reduced `n_virtual_cams` / `final_refine_iters`. With these knobs you can complete the run; the numbers will not match the paper exactly because the multi-scale refinement budget changes.
+- For the longer TUM/I2-SLAM sequences (`fr1_desk`, `fr2_xyz`, `fr3_office`), the multi-resolution BPN kernel state grows linearly in the number of keyframes and exceeds 24 GB. Use `configs/I2sla[...]
 
 ### Reproducing the cluster job
 
@@ -182,21 +184,21 @@ The paper used a 48 GB A6000. On 24 GB cards (RTX 3090 / A5000 / Quadro RTX 6000
 sbatch --gres=gpu:rtx_3090:1 run_repro_i2slam.sbatch configs/deblur_nerf_motion/blurball.yaml
 ```
 
-> **Note on hardware variance:** As with most CUDA-based SLAM systems, exact metrics can drift slightly across GPU generations even with a fixed seed. If your numbers differ at the second decimal, that is expected.
+> **Note on hardware variance:** As with most CUDA-based SLAM systems, exact metrics can drift slightly across GPU generations even with a fixed seed. If your numbers differ at the second decimal[...]
 
 ## 🔬 Pipeline at a glance
 - **Blur quantification** with ARNIQA classifies each frame as sharp / blurry-success / blurry-fail.
-- **Sharp & blurry-success frames** are tracked with DROID-SLAM and then refined through deformable 3DGS, multi-scale BPN kernels (sizes 3 / 5 / 9 / 3), and exposure compensation (Sec. 3.6 of the paper).
+- **Sharp & blurry-success frames** are tracked with DROID-SLAM and then refined through deformable 3DGS, multi-scale BPN kernels (sizes 3 / 5 / 9 / 3), and exposure compensation (Sec. 3.6 of the[...]
 - **Blurry-fail frames** are modeled with `n_virtual_cams` sub-frame poses inside the rasterizer to invert motion-blur formation (Eq. 1 of the paper).
 - **Global consistency** comes from DSPO/DBA local bundle adjustment, loop closure detection, and a final-stage global BA + multi-scale refinement (`mapping.final_refine_iters: 26000`).
 
 ## ⚠️ Pre-trained Model Loading & Limitations
 The pre-trained models can be loaded directly by referring to the [EVSSM repository](https://github.com/kkkls/EVSSM).
 
-For RGB images that have been processed and enhanced by smartphone AI algorithms (computational photography), our algorithm cannot invert these non-linear enhancements to recover the linear RGB values required for fixed-timestamp deblurring.
+For RGB images that have been processed and enhanced by smartphone AI algorithms (computational photography), our algorithm cannot invert these non-linear enhancements to recover the linear RGB v[...]
 
 ## 🙏 Acknowledgements
-Our codebase builds on [Splat-SLAM](https://github.com/google-research/Splat-SLAM), [GlORIE-SLAM](https://github.com/zhangganlin/GlORIE-SLAM), [GO-SLAM](https://github.com/youmi-zym/GO-SLAM), [DROID-SLAM](https://github.com/princeton-vl/DROID-SLAM), [MonoGS](https://github.com/muskie82/MonoGS), [BAGS](https://github.com/peng-zhou/BAGS), and [EVSSM](https://github.com/kkkls/EVSSM). We thank the authors of [I2-SLAM](https://github.com/Bae-Jiseong/I2-SLAM) for sharing manually annotated TUM keyframes for fair PSNR comparison, and the authors of [MBA-SLAM](https://github.com/WU-CVGL/MBA-SLAM) for sharing reconstructions on `fr1_desk`. None of this work would have been possible without those efforts.
+Our codebase builds on [Splat-SLAM](https://github.com/google-research/Splat-SLAM), [GlORIE-SLAM](https://github.com/zhangganlin/GlORIE-SLAM), [GO-SLAM](https://github.com/youmi-zym/GO-SLAM), [DR[...]
 
 ## 📝 Citation
 If you find our work or datasets helpful in your research, please consider citing our paper:
