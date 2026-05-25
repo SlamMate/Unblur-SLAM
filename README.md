@@ -2,7 +2,7 @@
 
 <img width="532" height="270" alt="blur_teaser_3D" src="https://github.com/user-attachments/assets/f8d12d59-20fb-4645-a79a-f0ef62d7dd42" />
 
-Welcome to the official repository for **Unblur-SLAM**, a novel RGB SLAM pipeline designed for sharp 3D reconstruction from blurred image inputs.
+Welcome to the official repository for **Unblur-SLAM**, a dense neural RGB SLAM pipeline designed for sharp 3D reconstruction from **blurry** image inputs.
 
 📄 **Paper:** [Unblur-SLAM (arXiv)](https://arxiv.org/pdf/2603.26810)
 
@@ -12,50 +12,57 @@ Welcome to the official repository for **Unblur-SLAM**, a novel RGB SLAM pipelin
 > *Unblur-SLAM: Dense Neural SLAM for Blurry Inputs.* CVPR 2026.
 
 ## 📖 Overview
+
 <img width="700" height="266" alt="unblur-slam-overview" src="https://github.com/user-attachments/assets/663d569b-5269-4e7d-b488-709e16c2b130" />
 
-In contrast to previous work, Unblur-SLAM is capable of handling different types of blur and demonstrates state-of-the-art performance in the presence of both motion blur and defocus blur.
+In contrast to previous work, Unblur-SLAM can handle different types of blur and demonstrates strong performance under both **motion blur** and **defocus blur**.
 
-Our system intelligently adjusts its computational effort based on the amount of blur detected in the input image. By treating sharp and blurry frames separately and skipping costly refinements fo[...]
+The system adapts its computational effort based on the estimated blur level: it treats sharp and blurry frames differently and can skip expensive refinements when appropriate.
 
 ## 🚀 Release Plan
 
 ### TODO List
-- [x] **Phase 1:** Open-source the pre-trained model weights and the curated datasets.
+
+- [x] **Phase 1:** Open-source the pre-trained model weights and curated datasets.
   - 🏋️ **Pre-trained Models:** Available on [Hugging Face](https://huggingface.co/qizhangslam/Unblur-SLAM-checkpoints)
   - 🗄️ **Curated Datasets:** Available on [Hugging Face](https://huggingface.co/datasets/qizhangslam/Unblur_slam_traning_dataset)
 - [ ] **Phase 2:** Open-source the training code for the deblurring model.
 - [x] **Phase 3:** Open-source the inference code of the whole system. *(this commit)*
 
-Please star or watch this repository to stay updated on our progress!
+Please star or watch this repository to stay updated on our progress.
 
 ## 🛠️ Installation
 
 1. Clone the repository.
+
    ```bash
    git clone https://github.com/SlamMate/Unblur-SLAM.git
    cd Unblur-SLAM
    ```
 
 2. Create a conda environment.
+
    ```bash
    conda create --name unblur-slam python=3.10 -y
    conda activate unblur-slam
    ```
 
 3. Install CUDA toolkit and PyTorch.
+
    ```bash
    conda install conda-forge::cudatoolkit-dev=11.7.0 -y
    conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -y
    python -c "import torch; print('cuda:', torch.cuda.is_available())"
    ```
 
-4. **Patch the Gaussian rasterizer near plane.** In our monocular setting the global scale is ambiguous, so we lower the rasterizer's near plane from `0.2` to `0.001`. Edit `thirdparty/diff-gaussi[...]
+4. **Patch the Gaussian rasterizer near plane.** In our monocular setting the global scale is ambiguous, so we lower the rasterizer's near plane from `0.2` to `0.001`. Edit `thirdparty/diff-gaussian-rasterization-w-pose/cuda_rasterizer/forward.cu` and change:
+
    ```c
    if (p_view.z <= 0.001f)
    ```
 
 5. Install the in-tree extensions.
+
    ```bash
    python -m pip install -e thirdparty/lietorch/
    python -m pip install -e thirdparty/diff-gaussian-rasterization-w-pose/
@@ -64,6 +71,7 @@ Please star or watch this repository to stay updated on our progress!
    ```
 
 6. Build the DROID backends and install Python requirements.
+
    ```bash
    python -m pip install -e .
    python -m pip install -r requirements.txt
@@ -71,47 +79,57 @@ Please star or watch this repository to stay updated on our progress!
    ```
 
 7. Sanity check.
+
    ```bash
    python -c "import torch, lietorch, simple_knn, diff_gaussian_rasterization; print(torch.cuda.is_available())"
    ```
 
 8. Download pretrained weights into `./pretrained/`.
+
    ```text
    pretrained/
    ├── droid.pth                       # DROID-SLAM tracker (Splat-SLAM Drive bundle)
    ├── omnidata_dpt_depth_v2.ckpt      # Omnidata monocular depth (same bundle)
    └── evssm/
-       ├── net_g_latest.pth            # EVSSM deblurring weights (motion + defocus)
-       └── net_g_realblur_j.pth        # optional: RealBlur_J variant
+      ├── net_g_latest.pth             # EVSSM deblurring weights (motion + defocus)
+      └── net_g_realblur_j.pth         # optional: RealBlur_J variant
    ```
-   The `droid.pth` and `omnidata_dpt_depth_v2.ckpt` come from the original Splat-SLAM [Google Drive bundle](https://drive.google.com/file/d/1oZbVPrubtaIUjRRuT8F-YjjHBW-1spKT/view?usp=drive_link); [...]
+
+   The `droid.pth` and `omnidata_dpt_depth_v2.ckpt` come from the original Splat-SLAM Google Drive bundle; see the Splat-SLAM repository for details.
 
 ## 🗄️ Datasets
 
 Place every dataset under `./datasets/` (or symlink). Defaults in the config files assume this layout — change `data.dataset_root` / `data.input_folder` if you store data elsewhere.
 
 ### Deblur-NeRF (motion blur and defocus blur)
+
 We follow the layout of Ma et al. (2022) — see the [Deblur-NeRF release](https://github.com/limacv/Deblur-NeRF). Place the two subsets at:
+
 ```
 datasets/real_camera_motion_blur/<scene>/    # motion blur, 10 scenes (blurball, blurbasket, ...)
 datasets/real_defocus_blur/<scene>/          # defocus blur, 11 scenes (defocusbush, defocuscake, ...)
 ```
 
 ### I2-SLAM evaluation on TUM-RGBD
+
 The I2-SLAM rendering benchmark uses TUM-RGBD `fr1_desk`, `fr2_xyz`, and `fr3_office` with the I2-SLAM keyframe annotations. Download the TUM sequences with:
+
 ```bash
 bash scripts/download_tum.sh
 ```
+
 Then place them at `datasets/tum/rgbd_dataset_freiburg{1_desk,2_xyz,3_long_office_household}/`.
 
-### Replica, ScanNet, ReplicaBlurry, MCD, ArchViz, exblurf
-Configs for these auxiliary benchmarks live under `configs/Replica/`, `configs/Scannet/`, `configs/ReplicaBlurry/`, `configs/MCD/`, and `configs/exblurf_motion/`. Helper download scripts are in `[...]
+### Replica, ScanNet, ReplicaBlurry, MCD, ArchViz
+
+Configs for these auxiliary benchmarks live under `configs/Replica/`, `configs/Scannet/`, `configs/ReplicaBlurry/`, and `configs/MCD/`. Helper download scripts are in `scripts/`.
 
 ## ▶️ Run
 
 Each scene has its own config; the inference entry point is `run.py <config>`.
 
-### Deblur-NeRF — motion blur (paper Tab. 5)
+### Deblur-NeRF — motion blur
+
 ```bash
 python run.py configs/deblur_nerf_motion/blurball.yaml
 python run.py configs/deblur_nerf_motion/blurbasket.yaml
@@ -124,16 +142,19 @@ python run.py configs/deblur_nerf_motion/blurparterre.yaml
 python run.py configs/deblur_nerf_motion/blurpuppet.yaml
 python run.py configs/deblur_nerf_motion/blurstair.yaml
 ```
+
 Or sweep all 10 with `bash run_all_deblur_nerf_motion.sh`.
 
-### Deblur-NeRF — defocus blur (paper Tab. 4)
+### Deblur-NeRF — defocus blur
+
 ```bash
 python run.py configs/deblur_nerf_defocus/defocusbush.yaml
 # ...same pattern for defocuscake, defocuscaps, defocuscisco, defocuscoral,
 # defocuscupcake, defocuscups, defocusdaisy, defocussausage, defocusseal, defocustools
 ```
 
-### I2-SLAM rendering benchmark on TUM (paper Tab. 6)
+### I2-SLAM rendering benchmark on TUM
+
 ```bash
 python run.py configs/I2slam/freiburg1_desk.yaml
 python run.py configs/I2slam/freiburg2_xyz.yaml
@@ -141,66 +162,41 @@ python run.py configs/I2slam/freiburg3_office.yaml
 ```
 
 ### Tracking-only mode
+
 Append `--only_tracking` to skip mapping/rendering and only produce the camera trajectory:
+
 ```bash
 python run.py configs/I2slam/freiburg3_office.yaml --only_tracking
 ```
 
-## 🎯 Reproducing paper numbers
-
-Reference numbers from the camera-ready Unblur-SLAM paper:
-
-| Benchmark | Metric | Target |
-|---|---|---|
-| Deblur-NeRF motion blur (Tab. 5) | PSNR / SSIM / LPIPS | **29.49** / **0.9213** / **0.0728** |
-| Deblur-NeRF defocus blur (Tab. 4) | PSNR | **27.45** |
-| TUM I2-SLAM (Tab. 6) — fr1_desk / fr2_xyz / fr3_office | PSNR | 28.03 / 31.14 / 29.22 |
-| TUM tracking (Tab. 3, mean over 19 sequences) | ATE RMSE [m] | **0.336** |
-| MCD tracking (Tab. 3, mean over 57 sequences) | ATE RMSE [m] | **0.128** |
-
-The configs in this repository ship with the exact hyperparameters used to produce those numbers (kernel sizes `(3, 5, 9, 3)`, 7 virtual sub-frames for motion blur on Deblur-NeRF, sharp-loss weig[...]
-
-### Verified end-to-end run (RTX 3090, 24 GB)
-
-We re-ran `configs/deblur_nerf_motion/blurball.yaml` from this exact commit on an RTX 3090 (`ivi-cn002`, 65 min wall-clock, peak 11.7 GB GPU memory):
-
-| Stage | PSNR | SSIM | LPIPS |
-|---|---|---|---|
-| before final refine | 28.39 | 0.851 | 0.161 |
-| **after 26 000-iter refine** | **29.85** | **0.892** | **0.114** |
-
-`blurball` is one of the easier scenes in the Deblur-NeRF motion-blur subset, so its PSNR is slightly above the 10-scene average reported in the paper (29.49). The full ATE/PSNR sweep across all [...]
-
-### Hardware notes — running on 24 GB GPUs
-
-The paper used a 48 GB A6000. On 24 GB cards (RTX 3090 / A5000 / Quadro RTX 6000) two extra knobs are required:
-
-- Set `UNBLUR_SKIP_NR_IQA=1` (pre-set in `run_repro_i2slam.sbatch`) — skips the QAlign LLaMA-based IQA model in `eval_utils.py`. PSNR/SSIM/LPIPS are still computed.
-- For the longer TUM/I2-SLAM sequences (`fr1_desk`, `fr2_xyz`, `fr3_office`), the multi-resolution BPN kernel state grows linearly in the number of keyframes and exceeds 24 GB. Use `configs/I2sla[...]
-
-### Reproducing the cluster job
-
-```bash
-sbatch --gres=gpu:rtx_3090:1 run_repro_i2slam.sbatch configs/deblur_nerf_motion/blurball.yaml
-```
-
-> **Note on hardware variance:** As with most CUDA-based SLAM systems, exact metrics can drift slightly across GPU generations even with a fixed seed. If your numbers differ at the second decimal[...]
-
 ## 🔬 Pipeline at a glance
+
 - **Blur quantification** with ARNIQA classifies each frame as sharp / blurry-success / blurry-fail.
-- **Sharp & blurry-success frames** are tracked with DROID-SLAM and then refined through deformable 3DGS, multi-scale BPN kernels (sizes 3 / 5 / 9 / 3), and exposure compensation (Sec. 3.6 of the[...]
-- **Blurry-fail frames** are modeled with `n_virtual_cams` sub-frame poses inside the rasterizer to invert motion-blur formation (Eq. 1 of the paper).
-- **Global consistency** comes from DSPO/DBA local bundle adjustment, loop closure detection, and a final-stage global BA + multi-scale refinement (`mapping.final_refine_iters: 26000`).
+- **Sharp & blurry-success frames** are tracked with DROID-SLAM and then refined through deformable 3DGS, multi-scale BPN kernels, and exposure compensation.
+- **Blurry-fail frames** are modeled with `n_virtual_cams` sub-frame poses inside the rasterizer to invert motion-blur formation.
+- **Global consistency** comes from DSPO/DBA local bundle adjustment, loop closure detection, and a final-stage global BA + multi-scale refinement.
 
 ## ⚠️ Pre-trained Model Loading & Limitations
+
 The pre-trained models can be loaded directly by referring to the [EVSSM repository](https://github.com/kkkls/EVSSM).
 
-For RGB images that have been processed and enhanced by smartphone AI algorithms (computational photography), our algorithm cannot invert these non-linear enhancements to recover the linear RGB v[...]
+For RGB images that have been processed and enhanced by smartphone AI algorithms (computational photography), our algorithm cannot invert these non-linear enhancements to recover the linear RGB values.
+
+## 📦 Third-party dependencies
+
+If you find any missing third-party libraries in this repository, you can directly reference the corresponding implementations from **Splat-SLAM**:
+
+- Reference repository: https://github.com/google-research/Splat-SLAM
+- You can either copy the missing components into `thirdparty/`, or add them as a submodule / subtree.
+
+Alternatively, you can keep a lightweight setup by adding a pointer under `thirdparty/` (e.g., a `thirdparty/Splat-SLAM.md` file) that links to the upstream Splat-SLAM reference libraries.
 
 ## 🙏 Acknowledgements
-Our codebase builds on [Splat-SLAM](https://github.com/google-research/Splat-SLAM), [GlORIE-SLAM](https://github.com/zhangganlin/GlORIE-SLAM), [GO-SLAM](https://github.com/youmi-zym/GO-SLAM), [DR[...]
+
+Our codebase builds on [Splat-SLAM](https://github.com/google-research/Splat-SLAM), [GlORIE-SLAM](https://github.com/zhangganlin/GlORIE-SLAM), [GO-SLAM](https://github.com/youmi-zym/GO-SLAM), and other related projects.
 
 ## 📝 Citation
+
 If you find our work or datasets helpful in your research, please consider citing our paper:
 
 ```bibtex
@@ -213,4 +209,5 @@ If you find our work or datasets helpful in your research, please consider citin
 ```
 
 ## 📬 Contact
+
 Open an issue on this repository, or reach Qi Zhang at <q.zhang@uva.nl> for questions and bug reports.
