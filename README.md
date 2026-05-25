@@ -6,7 +6,7 @@ Welcome to the official repository for **Unblur-SLAM**, a dense neural RGB SLAM 
 
 📄 **Paper:** [Unblur-SLAM (arXiv)](https://arxiv.org/pdf/2603.26810)
 
-🎬 **Video:** [YouTube](https://www.youtube.com/watch?v=d6pvaMJU2pE&t=174s), [Bilibili](https://www.bilibili.com/video/BV1ZMG66GEjC/?spm_id_from=333.1387.homepage.video_card.click&vd_source=416f67ad5bdfa2fa2c6f4bc0abfd399c)
+🎬 **Video:** [YouTube](https://www.youtube.com/watch?v=d6pvaMJU2pE&t=174s), [Bilibili](https://www.bilibili.com/video/BV1ZMG66GEjC/?spm_id_from=333.1387.homepage.video_card.click&vd_source=416f6c8d056474633d2b7c58b5cc3fd5)
 
 > Qi Zhang, Denis Rozumny, Francesco Girlanda, Sezer Karaoglu, Marc Pollefeys, Theo Gevers, Martin R. Oswald.
 > *Unblur-SLAM: Dense Neural SLAM for Blurry Inputs.* CVPR 2026.
@@ -55,7 +55,7 @@ Please star or watch this repository to stay updated on our progress.
    python -c "import torch; print('cuda:', torch.cuda.is_available())"
    ```
 
-4. **Patch the Gaussian rasterizer near plane.** In our monocular setting the global scale is ambiguous, so we lower the rasterizer's near plane from `0.2` to `0.001`. Edit `thirdparty/diff-gaussian-rasterization-w-pose/cuda_rasterizer/forward.cu` and change:
+4. **Patch the Gaussian rasterizer near plane.** In our monocular setting the global scale is ambiguous, so we lower the rasterizer's near plane from `0.2` to `0.001`. Edit `thirdparty/diff-gaussian-rasterization-w-pose/cuda_rasterizer/forward.cu`:
 
    ```c
    if (p_view.z <= 0.001f)
@@ -184,7 +184,7 @@ For RGB images that have been processed and enhanced by smartphone AI algorithms
 
 ## 📦 Third-party dependencies
 
-If you find any missing third-party libraries in this repository, you can directly reference the corresponding implementations from **Splat-SLAM**:
+If you find any missing third-party libraries in this repository (e.g., a submodule under `thirdparty/` that does not download properly), you can directly reuse the corresponding submodule from **Splat-SLAM** — both repositories use the same third-party components.
 
 - Reference repository: https://github.com/google-research/Splat-SLAM
 - You can either copy the missing components into `thirdparty/`, or add them as a submodule / subtree.
@@ -193,7 +193,7 @@ Alternatively, you can keep a lightweight setup by adding a pointer under `third
 
 ## 🙏 Acknowledgements
 
-Our codebase builds on [Splat-SLAM](https://github.com/google-research/Splat-SLAM), [GlORIE-SLAM](https://github.com/zhangganlin/GlORIE-SLAM), [GO-SLAM](https://github.com/youmi-zym/GO-SLAM), and other related projects.
+Our codebase builds on [Splat-SLAM](https://github.com/google-research/Splat-SLAM), [GlORIE-SLAM](https://github.com/zhangganlin/GlORIE-SLAM), [GO-SLAM](https://github.com/youmi-zym/GO-SLAM), and related projects.
 
 ## 📝 Citation
 
