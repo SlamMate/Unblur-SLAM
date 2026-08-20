@@ -44,6 +44,13 @@ evssm_checkpoint: "./pretrained/evssm/net_g_latest.pth"
 
 deblur:
   open: True
+  # Pluggable frontends: evssm (default), precomputed, causal_torchscript.
+  # The causal model contract is [1,T,3,H,W] -> BCHW or BTCHW.
+  frontend: evssm
+  precomputed_root: ""
+  precomputed_pattern: "{timestamp}.png"
+  causal_checkpoint: ""
+  causal_history: 5
 
   # Multi-resolution kernel sizes (critical for performance)
   ks1: 3   # Stage 1 kernel size

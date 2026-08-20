@@ -16,9 +16,6 @@ import torch
 import lietorch
 import time
 import cv2
-# 额外的去模糊包
-from thirdparty.EVSSM.models.EVSSM import EVSSM
-from torchvision.transforms import functional as F
 from thirdparty.monogs.utils.slam_utils import variance_of_laplacian
 from src.utils.datasets import BaseDataset
 from src.utils.blur_detector_metrics import BlurDetector
@@ -30,6 +27,7 @@ from src.utils.datasets import load_mono_depth
 
 from src.utils.common import save_tensor
 from src.utils.tum_inverse_processor import CompleteInverseProcessor
+from src.deblur_backends import build_deblur_backend
 
 class MotionFilter:
     """ This class is used to filter incoming frames and extract features 
@@ -60,29 +58,27 @@ class MotionFilter:
         if self.cfg.get("sharp_judge", False):
             self.detector = BlurDetector(cfg)
         if self.cfg.get("fake_sharp", False):
-            self.evssm_model = EVSSM()
-            if torch.cuda.is_available():
-                self.evssm_model = self.evssm_model.cuda()
-            
-            # Load pre-trained weights
-            evssm_checkpoint_path = self.cfg.get("evssm_checkpoint", 
-                # "./pretrained/net_g_latest_gaussian_blur+tum_rough_fine_tune.pth")
-                # "./pretrained/net_g_latest_batch_8_no_NYU.pth")
-                # "./pretrained/net_g_gaussian_blur_No_nyu_sythetic.pth")
-                # "./thirdparty/EVSSM/experiments/EVSSM/models/net_g_186000.pth")
-                # "./thirdparty/EVSSM/experiments/EVSSM/models/net_g_36000.pth")
-                # "./thirdparty/EVSSM_Scannet/experiments/EVSSM/models/net_g_36000.pth")
-                # "./thirdparty/EVSSM/experiments/EVSSM_defocus/net_g_78000.pth")
-                # "./thirdparty/EVSSM/experiments/EVSSM/models/net_g_60000.pth")
-                # "./thirdparty/EVSSM_defocus/experiments/EVSSM/models/net_g_138000.pth")
-                # "./thirdparty/EVSSM_Scannet/experiments/EVSSM/models/net_g_42000.pth")
-                # "./thirdparty/EVSSM_replica/experiments/EVSSM/models/net_g_120000.pth")
-                # "./pretrained/net_g_realblur_r.pth")
-                "./pretrained/evssm/net_g_latest.pth")
-            state_dict = torch.load(evssm_checkpoint_path)['params']
-            self.evssm_model.load_state_dict(state_dict, strict=True)
-            self.evssm_model.eval()
-            print(f"TRACKING: EVSSM model loaded from {evssm_checkpoint_path}")
+            frontend_name = str((self.cfg.get("deblur", {}) or {}).get("frontend", "evssm")).lower()
+            self.evssm_model = None
+            if frontend_name == "evssm":
+                # Keep alternative frontends independent from EVSSM's optional
+                # model/package dependencies.
+                from thirdparty.EVSSM.models.EVSSM import EVSSM
+
+                self.evssm_model = EVSSM()
+                if torch.cuda.is_available():
+                    self.evssm_model = self.evssm_model.to(self.device)
+                evssm_checkpoint_path = self.cfg.get(
+                    "evssm_checkpoint", "./pretrained/evssm/net_g_latest.pth"
+                )
+                state_dict = torch.load(evssm_checkpoint_path, map_location=self.device)['params']
+                self.evssm_model.load_state_dict(state_dict, strict=True)
+                self.evssm_model.eval()
+                print(f"TRACKING: EVSSM model loaded from {evssm_checkpoint_path}")
+            self.deblur_backend_name, self.deblur_backend = build_deblur_backend(
+                self.cfg, evssm_model=self.evssm_model, device=self.device
+            )
+            print(f"TRACKING: deblur frontend={self.deblur_backend_name}")
         
         if self.cfg.get("apply_inverse_gamma", False):
             self.processor = CompleteInverseProcessor()
@@ -175,9 +171,10 @@ class MotionFilter:
             else:
                 return is_blurry
 
-    def apply_evssm_deblur(self, image_tensor: torch.Tensor, stream:BaseDataset) -> torch.Tensor:
+    def apply_evssm_deblur(self, image_tensor: torch.Tensor, stream:BaseDataset = None,
+                           timestamp=None) -> torch.Tensor:
         """
-        Apply EVSSM deblurring to the input image tensor
+        Apply the configured deblurring frontend to the input image tensor.
         
         Args:
             image_tensor: Input blurry image tensor [H, W, 3] or [3, H, W]
@@ -213,30 +210,17 @@ class MotionFilter:
         if image_tensor.max() > 1.0:
             image_tensor = image_tensor / 255.0
         
-        # Apply EVSSM deblurring
+        # Apply the configured frontend. The method name is retained for
+        # backward compatibility with older experiment scripts.
         with torch.no_grad():
             with torch.cuda.amp.autocast(enabled=False):
-                # Optional: pad to multiple of 4 for better performance
-                b, c, h, w = image_tensor.shape
-                h_pad = (4 - h % 4) % 4
-                w_pad = (4 - w % 4) % 4
-                
-                if h_pad > 0 or w_pad > 0:
-                    image_tensor = nnF.pad(image_tensor, (0, w_pad, 0, h_pad), mode='reflect')
-                
-                # Run deblurring
-                sharp_image = self.evssm_model(image_tensor)
-                
-                # Remove padding if applied
-                if h_pad > 0 or w_pad > 0:
-                    sharp_image = sharp_image[:, :, :h, :w]
-                
-                # Clamp values to valid range
-                sharp_image = torch.clamp(sharp_image, 0, 1)
+                sharp_image = self.deblur_backend(image_tensor, timestamp=timestamp)
         
         # Convert back to original format
-        if len(original_shape) == 3 and is_hwc:
-            sharp_image = sharp_image.permute(1, 2, 0)  # Convert back to [H, W, 3]
+        if len(original_shape) == 3:
+            sharp_image = sharp_image[0]
+            if is_hwc:
+                sharp_image = sharp_image.permute(1, 2, 0)  # Convert back to [H, W, 3]
         
 
         """
@@ -337,7 +321,9 @@ class MotionFilter:
                         
                         # 开始计时
                         start_time = time.perf_counter()
-                        deblurred_image = self.apply_evssm_deblur(original_image, stream)
+                        deblurred_image = self.apply_evssm_deblur(
+                            original_image, stream=stream, timestamp=tstamp
+                        )
                         # 同步CUDA操作
                         if torch.cuda.is_available():
                             torch.cuda.synchronize()
@@ -347,7 +333,7 @@ class MotionFilter:
                         
                         # 计算耗时（毫秒）
                         deblur_time_ms = (end_time - start_time) * 1000
-                        print(f"EVSSM去模糊耗时: {deblur_time_ms:.2f} ms")
+                        print(f"{self.deblur_backend_name}去模糊耗时: {deblur_time_ms:.2f} ms")
                         blur_degree = self.deblur_degree_detect(original_image.clone(), deblurred_image.clone())
                     # 初始化的话就算了吧，mapping初始化的时候不要跳过,然后用多点的帧来学锐利结果即可
                     if not init and not self.cfg["only_tracking"]:
