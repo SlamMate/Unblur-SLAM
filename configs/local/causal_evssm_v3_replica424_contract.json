@@ -1,0 +1,130 @@
+{
+  "schema": "unblur_slam.causal_evssm_replica424_experiment.v1",
+  "registered_before_training": true,
+  "registered_date": "2026-08-21",
+  "purpose": "Select a causal temporal refinement of the official Unblur-SLAM EVSSM without tuning on room2 or TUM.",
+  "teacher": {
+    "kind": "official_unblur_slam_evssm",
+    "checkpoint": "/srv/szha0669/unblur-slam/pretrained/net_g_latest_batch_8_no_NYU.pth",
+    "checkpoint_sha256": "4c18cd0c783b88e0c4efb8afb60642afed6bdc682cb076bcdd8c358e3c565b41",
+    "gopro_or_turtle_allowed": false
+  },
+  "data": {
+    "root": "/srv/szha0669/unblur-slam/causal_video_data",
+    "fresh_initialization_required": true,
+    "legacy_replica40_checkpoint_forbidden": true,
+    "train": {
+      "manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/train.jsonl",
+      "sha256": "bd7caa189374683c8ffd7e8fce83cb62e5f69b73f6048808c4808dc2b4ecd2ba",
+      "pairs": 234,
+      "role": "optimization"
+    },
+    "temporal_validation": {
+      "manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/val_temporal.jsonl",
+      "sha256": "1aa8cc7a01b82c7d759c3db70e6c7e796a26d09398f3a1fd1592d787db9f886b",
+      "pairs": 16,
+      "role": "the only split allowed for checkpoint and history selection"
+    },
+    "room2_test": {
+      "manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/test_room2.jsonl",
+      "source_root": "/srv/szha0669/unblur-slam/causal_video_data",
+      "sha256": "49464ac272a747675923ad28f5a659b2413a0975818af7bb35de39a90eaa1ba8",
+      "frame_identity_schema": "sorted_compact_json_sequence_index_blurry_sharp.v1",
+      "frame_identity_sha256": "b9438030e9c7bc06179db662d60738e15a30d48e3f45c1b1aa1ae3451c1a3861",
+      "pairs": 174,
+      "role": "scene-disjoint one-shot test; no tuning after opening"
+    },
+    "validation_report_sha256": "0fb570208646b35e33bb230c882e172fa5b72109ad4d8ab769be3575b97e6b52",
+    "split_ranges_sha256": "bb280670a4dff2ba5a19cefac6f8c978f2bd869a160a902cbabd8aa17282db52",
+    "source_inventory_sha256": "3a1171deb9a034df81aa5adffb78b3de1dcc012feb0076149668007e3edcaadb"
+  },
+  "model_matrix": {
+    "spatial_control": {
+      "history": 1,
+      "temporal_delta_weight": 0.0
+    },
+    "primary_causal": {
+      "history": 3,
+      "temporal_delta_weight": 0.05
+    },
+    "history_5_status": "diagnostic_only_because_room2_has_only_two_steady_state_targets"
+  },
+  "shared_training": {
+    "channels": 32,
+    "heads": 4,
+    "blocks": 2,
+    "max_residual": 0.03137254901960784,
+    "input_domain": "evssm",
+    "crop_size": 192,
+    "batch_size": 4,
+    "gradient_accumulation": 2,
+    "effective_batch_size": 8,
+    "optimizer_steps": 1500,
+    "learning_rate": 0.0002,
+    "weight_decay": 0.0001,
+    "warmup_steps": 50,
+    "gradient_clip": 1.0,
+    "amp": true,
+    "seed": 42,
+    "fft_weight": 0.1,
+    "fft_normalization": "ortho",
+    "evssm_fidelity_weight": 0.1,
+    "edge_weight": 0.05,
+    "laplacian_gate_weight": 0.02,
+    "legacy_distillation_weight": 0.0,
+    "checkpoint_interval_epochs": 5
+  },
+  "selection": {
+    "rule": "primary_causal must pass temporal validation and beat both EVSSM and the history-1/repeat-current controls before room2 is opened",
+    "oracle_good_definition": {
+      "delta_psnr_db_min": -0.02,
+      "delta_ssim_min": -0.0002,
+      "relative_l1_max": 0.005
+    },
+    "temporal_validation": {
+      "steady_psnr_delta_db_min": 0.1,
+      "steady_ssim_delta_min": 0.0,
+      "steady_relative_l1_delta_max": -0.005,
+      "steady_gt_temporal_difference_relative_delta_max": -0.01,
+      "normal_vs_repeat_current_psnr_delta_db_min": 0.05,
+      "normal_vs_repeat_current_temporal_relative_delta_max": -0.01,
+      "normal_vs_history1_psnr_delta_db_min": 0.05,
+      "laplacian_gate_pass_ratio_min": 0.25,
+      "accepted_oracle_precision_min": 0.8,
+      "worst_run_psnr_delta_db_min": -0.1,
+      "prefix_psnr_delta_db_min": -0.02
+    },
+    "room2_one_shot": {
+      "psnr_delta_db_min": 0.05,
+      "ssim_delta_min": 0.0,
+      "relative_l1_delta_max": 0.0,
+      "lpips_delta_max": 0.0,
+      "gt_temporal_difference_delta_max": 0.0,
+      "steady_normal_vs_repeat_current_psnr_delta_db_min": 0.03,
+      "laplacian_gate_pass_ratio_min": 0.2,
+      "accepted_oracle_precision_min": 0.8,
+      "nondegraded_long_runs_min": 10,
+      "long_runs_total": 16,
+      "worst_run_psnr_delta_db_min": -0.1
+    }
+  },
+  "tum221_frontend_probe": {
+    "run_only_after_room2_passes": true,
+    "causal_vs_evssm_laplacian_threshold": 0.0,
+    "minimum_adopted_frames": 12,
+    "clear_anchor_replacements_required": 0,
+    "accepted_median_laplacian_gain_min": 0.005,
+    "output_range": [0.0, 1.0],
+    "evssm_fidelity_l1_max": 0.01,
+    "evssm_fidelity_psnr_db_min": 35.0,
+    "evssm_fidelity_ssim_min": 0.98,
+    "residual_absolute_p99_max": 0.03137254901960784,
+    "warp_temporal_error_ratio_max": 0.99
+  },
+  "slam_smoke_after_frontend_pass": {
+    "psnr_delta_db_min": -0.05,
+    "ssim_delta_min": -0.001,
+    "lpips_delta_max": 0.002,
+    "ate_ratio_max": 1.05
+  }
+}

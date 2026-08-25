@@ -1,0 +1,4 @@
+inherit_from: ./common.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_online_mip_resplat_main_v1/baseline

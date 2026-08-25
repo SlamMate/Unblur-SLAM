@@ -5,6 +5,7 @@ EVSSM path remains behaviorally equivalent to the original tracker code.
 """
 
 from collections import deque
+import json
 from pathlib import Path
 
 import torch
@@ -88,13 +89,51 @@ class CausalTorchScriptBackend:
     one of: sharp/output/pred/image. The backend keeps only past/current frames.
     """
 
-    def __init__(self, checkpoint, history=5, device="cuda:0"):
+    def __init__(
+        self,
+        checkpoint,
+        history=5,
+        device="cuda:0",
+        expected_input_domain=None,
+    ):
         self.checkpoint = Path(checkpoint)
         self.history = max(1, int(history))
         self.device = torch.device(device)
         if not self.checkpoint.is_file():
             raise FileNotFoundError(f"Causal TorchScript checkpoint does not exist: {self.checkpoint}")
-        self.model = torch.jit.load(str(self.checkpoint), map_location=self.device).eval()
+        extra_files = {"metadata.json": ""}
+        self.model = torch.jit.load(
+            str(self.checkpoint),
+            map_location=self.device,
+            _extra_files=extra_files,
+        ).eval()
+        raw_metadata = extra_files.get("metadata.json", "")
+        if isinstance(raw_metadata, bytes):
+            raw_metadata = raw_metadata.decode("utf-8")
+        try:
+            self.metadata = json.loads(raw_metadata) if raw_metadata else {}
+        except (TypeError, json.JSONDecodeError) as error:
+            raise ValueError("causal TorchScript metadata.json is invalid") from error
+        model_config = self.metadata.get("model_config", {})
+        if model_config:
+            try:
+                trained_history = int(model_config["max_history"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError(
+                    "causal TorchScript metadata must contain model_config.max_history"
+                ) from error
+            if self.history != trained_history:
+                raise ValueError(
+                    f"runtime history={self.history} must equal trained "
+                    f"max_history={trained_history}"
+                )
+            if expected_input_domain is not None:
+                actual_domain = str(model_config.get("input_domain", "raw")).lower()
+                if actual_domain != str(expected_input_domain).lower():
+                    raise ValueError(
+                        f"causal TorchScript input_domain={actual_domain!r} does not "
+                        f"match runtime domain={expected_input_domain!r}"
+                    )
         self.frames = deque(maxlen=self.history)
 
     @torch.no_grad()
@@ -118,6 +157,67 @@ class CausalTorchScriptBackend:
         return output.clamp(0.0, 1.0)
 
 
+class CausalEVSSMBackend:
+    """Frozen EVSSM followed by a causal temporal residual adapter.
+
+    Each raw frame is processed by the original Unblur-SLAM EVSSM exactly
+    once.  The adapter then consumes the rolling sequence of EVSSM outputs,
+    so its identity initialization reproduces the existing single-frame
+    frontend and fine-tuning can only learn a temporal correction.
+    """
+
+    def __init__(
+        self,
+        evssm_model,
+        checkpoint,
+        history=5,
+        device="cuda:0",
+        teacher_storage=None,
+    ):
+        if evssm_model is None:
+            raise ValueError("causal_evssm requires an initialized EVSSM model")
+        self.evssm = EVSSMBackend(evssm_model, device)
+        self.temporal = CausalTorchScriptBackend(
+            checkpoint=checkpoint,
+            history=history,
+            device=device,
+            expected_input_domain="evssm",
+        )
+        embedded_provenance = self.temporal.metadata.get("teacher_provenance", {})
+        embedded_storage = str(embedded_provenance.get("storage", ""))
+        if teacher_storage is not None and embedded_storage and str(teacher_storage) != embedded_storage:
+            raise ValueError(
+                "configured causal teacher storage disagrees with TorchScript metadata"
+            )
+        self.teacher_storage = str(teacher_storage or embedded_storage)
+        if self.teacher_storage not in {
+            "runtime_evssm_float_tensor",
+            "precomputed_png_rgb8",
+        }:
+            raise ValueError(
+                "causal_evssm requires validated runtime or cached EVSSM teacher storage"
+            )
+        self.last_evssm_output = None
+        self.last_temporal_input = None
+
+    @property
+    def frames(self):
+        return self.temporal.frames
+
+    @torch.no_grad()
+    def __call__(self, image, timestamp=None):
+        restored = self.evssm(image, timestamp=timestamp)
+        self.last_evssm_output = restored.detach()
+        if self.teacher_storage == "precomputed_png_rgb8":
+            # Training loaded cached PNGs through uint8 RGB. Reproduce the
+            # exact round-to-nearest quantization before the temporal adapter.
+            temporal_input = torch.round(restored * 255.0) / 255.0
+        else:
+            temporal_input = restored
+        self.last_temporal_input = temporal_input.detach()
+        return self.temporal(temporal_input, timestamp=timestamp)
+
+
 def build_deblur_backend(cfg, evssm_model=None, device="cuda:0"):
     deblur_cfg = cfg.get("deblur", {}) or {}
     name = str(deblur_cfg.get("frontend", "evssm")).lower()
@@ -136,5 +236,33 @@ def build_deblur_backend(cfg, evssm_model=None, device="cuda:0"):
             checkpoint=deblur_cfg.get("causal_checkpoint", ""),
             history=deblur_cfg.get("causal_history", 5),
             device=device,
+            expected_input_domain="raw",
+        )
+    if name == "causal_evssm":
+        return name, CausalEVSSMBackend(
+            evssm_model=evssm_model,
+            checkpoint=deblur_cfg.get("causal_checkpoint", ""),
+            history=deblur_cfg.get("causal_history", 5),
+            device=device,
+            teacher_storage=deblur_cfg.get("causal_teacher_storage"),
+        )
+    if name == "turtle_streaming":
+        # Lazy import keeps the default EVSSM path independent of TURTLE's
+        # optional YAML/einops runtime and avoids polluting the basicsr namespace.
+        from src.turtle_backend import TurtleStreamingBackend
+
+        return name, TurtleStreamingBackend.from_config(
+            deblur_cfg, device=device
+        )
+    if name == "turtle_bsd_streaming":
+        # The official BSD checkpoint uses TURTLE-t0 rather than the GoPro
+        # t1 architecture.  It nevertheless shares the same incremental,
+        # strictly causal K/V runtime contract.
+        from src.turtle_official_bsd_backend import (
+            OfficialBsdTurtleStreamingBackend,
+        )
+
+        return name, OfficialBsdTurtleStreamingBackend.from_config(
+            deblur_cfg, device=device
         )
     raise ValueError(f"Unsupported deblur.frontend={name!r}")

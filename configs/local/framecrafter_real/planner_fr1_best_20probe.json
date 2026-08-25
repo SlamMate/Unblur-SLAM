@@ -1,0 +1,10 @@
+{
+  "segments": [
+    {
+      "left_frame": "rgb/1305031471.995573.png",
+      "right_frame": "rgb/1305031472.027638.png",
+      "alphas": [0.5],
+      "reasons": ["consecutive_blurry_region"]
+    }
+  ]
+}

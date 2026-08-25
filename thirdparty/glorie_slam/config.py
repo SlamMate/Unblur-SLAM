@@ -13,6 +13,24 @@
 # limitations under the License.
 
 import yaml
+from pathlib import Path
+
+
+def _resolve_config_path(value, parent_path=None):
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path
+    candidates = []
+    if parent_path is not None:
+        parent = Path(parent_path).expanduser().resolve().parent
+        candidates.append(parent / path)
+        candidates.extend(ancestor / path for ancestor in parent.parents)
+    candidates.append(Path.cwd() / path)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.resolve()
+    # Preserve a useful filename in the eventual FileNotFoundError.
+    return candidates[0].resolve()
 
 
 def load_config(path, default_path=None):
@@ -27,6 +45,7 @@ def load_config(path, default_path=None):
 
     """
     # load configuration from file itself
+    path = _resolve_config_path(path)
     with open(path, 'r' ) as f:
         cfg_special = yaml.full_load(f)
 
@@ -36,8 +55,10 @@ def load_config(path, default_path=None):
     # if yes, load this config first as default
     # if no, use the default path
     if inherit_from is not None:
-        cfg = load_config(inherit_from, default_path)
+        inherit_path = _resolve_config_path(inherit_from, parent_path=path)
+        cfg = load_config(inherit_path, default_path)
     elif default_path is not None:
+        default_path = _resolve_config_path(default_path, parent_path=path)
         with open(default_path, 'r') as f:
             cfg = yaml.full_load(f)
     else:

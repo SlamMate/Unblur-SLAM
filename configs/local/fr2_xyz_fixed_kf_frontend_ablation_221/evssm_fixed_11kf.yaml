@@ -1,0 +1,11 @@
+inherit_from: ./common.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_fixed_kf_frontend_ablation_221/evssm_fixed_11kf
+
+evssm_checkpoint: /srv/szha0669/unblur-slam/pretrained/net_g_latest_batch_8_no_NYU.pth
+evssm_checkpoint_sha256: 4c18cd0c783b88e0c4efb8afb60642afed6bdc682cb076bcdd8c358e3c565b41
+
+deblur:
+  frontend: evssm
+  causal_checkpoint: ""

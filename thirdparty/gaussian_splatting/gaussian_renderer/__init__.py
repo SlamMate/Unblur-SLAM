@@ -21,6 +21,10 @@ from thirdparty.gaussian_splatting.scene.gaussian_model import GaussianModel
 from thirdparty.gaussian_splatting.utils.sh_utils import eval_sh
 
 
+def _mip_splatting_enabled(pc: GaussianModel) -> bool:
+    return bool(getattr(pc, "_mip_splatting_enabled", False))
+
+
 def render(
     viewpoint_camera,
     pc: GaussianModel,
@@ -69,13 +73,18 @@ def render(
         campos=viewpoint_camera.camera_center,
         prefiltered=False,
         debug=False,
+        # The differentiable rasterizer implements the Mip-Splatting 2D
+        # low-pass/EWA compensation when antialiasing is enabled.  The paired
+        # 3D scene-frequency filter is applied to scale and opacity below.
+        antialiasing=_mip_splatting_enabled(pc),
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
 
     means3D = pc.get_xyz
     means2D = screenspace_points
-    opacity = pc.get_opacity
+    mip_enabled = _mip_splatting_enabled(pc)
+    opacity = pc.get_opacity_with_3D_filter if mip_enabled else pc.get_opacity
 
     # If precomputed 3d covariance is provided, use it. If not, then it will be computed from
     # scaling / rotation by the rasterizer.
@@ -83,13 +92,23 @@ def render(
     rotations = None
     cov3D_precomp = None
     if pipe.compute_cov3D_python:
-        cov3D_precomp = pc.get_covariance(scaling_modifier)
+        if mip_enabled:
+            cov3D_precomp = pc.covariance_activation(
+                pc.get_scaling_with_3D_filter,
+                scaling_modifier,
+                pc._rotation,
+            )
+        else:
+            cov3D_precomp = pc.get_covariance(scaling_modifier)
     else:
         # check if the covariance is isotropic
-        if pc.get_scaling.shape[-1] == 1:
-            scales = pc.get_scaling.repeat(1, 3)
+        base_scales = (
+            pc.get_scaling_with_3D_filter if mip_enabled else pc.get_scaling
+        )
+        if base_scales.shape[-1] == 1:
+            scales = base_scales.repeat(1, 3)
         else:
-            scales = pc.get_scaling
+            scales = base_scales
         rotations = pc.get_rotation
 
     # If precomputed colors are provided, use them. Otherwise, if it is desired to precompute colors
@@ -205,13 +224,15 @@ def render_virtual(
         campos=viewpoint_camera.camera_center_custom(R,t),
         prefiltered=False,
         debug=False,
+        antialiasing=_mip_splatting_enabled(pc),
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
 
     means3D = pc.get_xyz
     means2D = screenspace_points
-    opacity = pc.get_opacity
+    mip_enabled = _mip_splatting_enabled(pc)
+    opacity = pc.get_opacity_with_3D_filter if mip_enabled else pc.get_opacity
 
     # If precomputed 3d covariance is provided, use it. If not, then it will be computed from
     # scaling / rotation by the rasterizer.
@@ -219,13 +240,23 @@ def render_virtual(
     rotations = None
     cov3D_precomp = None
     if pipe.compute_cov3D_python:
-        cov3D_precomp = pc.get_covariance(scaling_modifier)
+        if mip_enabled:
+            cov3D_precomp = pc.covariance_activation(
+                pc.get_scaling_with_3D_filter,
+                scaling_modifier,
+                pc._rotation,
+            )
+        else:
+            cov3D_precomp = pc.get_covariance(scaling_modifier)
     else:
         # check if the covariance is isotropic
-        if pc.get_scaling.shape[-1] == 1:
-            scales = pc.get_scaling.repeat(1, 3)
+        base_scales = (
+            pc.get_scaling_with_3D_filter if mip_enabled else pc.get_scaling
+        )
+        if base_scales.shape[-1] == 1:
+            scales = base_scales.repeat(1, 3)
         else:
-            scales = pc.get_scaling
+            scales = base_scales
         rotations = pc.get_rotation
 
     # If precomputed colors are provided, use them. Otherwise, if it is desired to precompute colors

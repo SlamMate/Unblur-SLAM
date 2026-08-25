@@ -1,0 +1,22 @@
+inherit_from: ./common.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_bsd_turtle_ate_221_v2/turtle_gopro
+
+evssm_checkpoint: ""
+evssm_checkpoint_sha256: ""
+
+deblur:
+  frontend: turtle_streaming
+  causal_checkpoint: ""
+  stream_every_frame: true
+  stream_apply_to_tracking: true
+  stream_min_laplacian_gain: 0.02
+  stream_replace_sharp: false
+  turtle_inference_precision: fp16
+  turtle_repo: /srv/szha0669/unblur-slam/external/TURTLE
+  turtle_config: /srv/szha0669/unblur-slam/external/TURTLE/options/Turtle_Deblur_Gopro.yml
+  turtle_checkpoint: /srv/szha0669/unblur-slam/pretrained/turtle/GoPro_Deblur.pth
+  turtle_repo_commit: 7094f4221b64ad0962b4f27ff1b76d788836e804
+  turtle_config_sha256: 123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23
+  turtle_checkpoint_sha256: 10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82

@@ -1,0 +1,131 @@
+# Copy this file, replace every /ABS/... path, then pass the copy to run.py.
+inherit_from: ./configs/I2slam/freiburg2_xyz.yaml
+
+# Required for the complete paper clear-GT set (including warmup frames).
+warmup_mapper: true
+
+framecrafter:
+  enabled: true
+  auto_prepare: true
+  reuse_existing: true
+  trajectory_npz: /ABS/first_pass/traj_full_full_traj.npz
+  trajectory_key: traj_est_not_align
+  # DROID tracking anchors from the same first pass. This may be video.npz or
+  # an increasing source-index text file; it is not the clear-GT eval list.
+  anchor_indices: /ABS/first_pass/video.npz
+  repo_path: /ABS/FrameCrafter
+  checkpoint: /ABS/framecrafter.safetensors
+  base_model_dir: /ABS/Wan2.1-I2V-14B
+  output_dir: /ABS/framecrafter_fr2_xyz
+  pose_source: droid_traj_est_not_align
+  backend: python_api
+
+  # Adjacent DROID anchors are planned with frustum + bidirectional RGB-D
+  # overlap. ORB/SIFT RANSAC supplies optional image-coverage evidence, while
+  # RGB-D solvePnPRansac is the only path that refines translation with scale.
+  planner_mode: overlap_blur_feature
+  target_pair_overlap: 0.80
+  hard_submap_overlap: 0.05
+  overlap_sample_stride: 4
+  include_blurry_regions: true
+  max_inserts_per_gap: 4
+  max_generated_frames: 256
+  feature_refinement: true
+  feature_detector: orb
+  feature_model: essential
+  feature_ambiguity_low: 0.15
+  feature_ambiguity_high: 0.75
+  feature_overlap_weight: 0.20
+  # Essential RANSAC has no metric translation scale; keep rotation-only pose
+  # rewriting off when metric RGB-D PnP is enabled.
+  feature_refine_rotation: false
+
+  pnp_refinement: true
+  pnp_detector: orb
+  pnp_max_features: 3000
+  pnp_ratio_test: 0.75
+  pnp_mutual_check: true
+  pnp_min_keypoints: 12
+  pnp_min_matches: 8
+  pnp_min_depth: 0.0001
+  pnp_max_depth: 20.0
+  pnp_ambiguity_low: 0.15
+  pnp_ambiguity_high: 0.75
+  pnp_ransac_reprojection_error_px: 3.0
+  pnp_ransac_confidence: 0.999
+  pnp_ransac_iterations: 200
+  pnp_min_inliers: 8
+  pnp_min_inlier_ratio: 0.35
+  pnp_max_reprojection_rmse_px: 2.0
+  pnp_max_rotation_correction_deg: 12.0
+  pnp_max_translation_correction: 0.25
+
+  # M=6 role-aware context: 2 endpoints + 2 local blurry observations +
+  # 2 sharp before/after guides that retain target-frustum overlap.
+  context_views: 6
+  min_context_views: 3
+  local_blurry_contexts: 2
+  sharp_contexts: 2
+  context_local_radius: 8
+  context_search_radius: 32
+  min_sharp_context_overlap: 0.25
+  context_sharp_quantile: 0.65
+  # raw | evssm | hybrid. Hybrid deblurs only the interior blurry observation;
+  # endpoints and all sharp guides remain RAW so EVSSM cannot corrupt detail.
+  context_image_mode: hybrid
+  hybrid_evssm_roles: [local_blurry_inside]
+  evssm_metadata: /ABS/framecrafter_fr2_xyz/evssm_context/metadata.json
+  evssm_min_confidence: 0.50
+  evssm_min_sharpness_gain: 1.0
+  evssm_min_consistency: 0.70
+  evssm_local_gate_enabled: true
+  evssm_local_tile_size: 32
+  evssm_local_tile_stride: 16
+  evssm_local_max_brightness_drop: 0.30
+  evssm_local_min_edge_retention: 0.50
+  evssm_local_min_laplacian_retention: 0.50
+  evssm_local_max_tile_mae: 0.20
+  evssm_local_max_dark_expansion: 0.30
+  evssm_fallback: raw
+
+  height: 480
+  width: 640
+  inference_steps: 20
+  acceptance_mode: geometry
+  min_sharpness_gain: 1.05
+  min_depth_coverage: 0.30
+  min_depth_consistency: 0.50
+  max_photometric_error: 0.20
+  use_manifest_pose: true
+  align_manifest_pose_online: true
+  inject_gaussians: false
+  geometry_only_weight_scale: 0.50
+
+deblur:
+  # This requires a separately trained/exported causal checkpoint. The
+  # repository provides the training/export code path, not trained weights.
+  frontend: causal_torchscript
+  causal_checkpoint: /ABS/causal_video_deblur.pt
+  causal_history: 5
+  stream_every_frame: true
+  stream_apply_to_tracking: true
+  stream_replace_sharp: false
+  stream_min_laplacian_gain: 0.02
+
+mapping:
+  final_refine_iters: 26000
+  resplat:
+    enabled: true
+    backend: residual_replay
+    budget_mode: replace_tail
+    extra_iters: 4000
+    online_enabled: false
+    checkpoint_steps: [10000, 20000, 26000]
+    checkpoint_clear_gt_psnr: true
+    save_full_state: true
+
+# Partition metadata is available, but place recognition/registration/PGO is
+# intentionally not claimed as implemented yet.
+submaps:
+  enabled: false
+  loop_backend: none

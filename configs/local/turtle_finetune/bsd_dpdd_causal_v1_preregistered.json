@@ -1,0 +1,549 @@
+{
+  "schema": "unblur_slam.turtle_bsd_dpdd_causal_validation_only.v1",
+  "status": "protocol_preregistered_data_binding_pending_no_launch",
+  "created_date": "2026-08-23",
+  "scope": "validation_only_controlled_t1_BSD_plus_DPDD_ablation_with_official_t0_reference",
+  "launch_authorized": false,
+  "reference_launch_authorized": false,
+  "hypotheses": {
+    "official_bsd_domain_fit": "The official BSD 3ms-24ms TURTLE model O improves real-camera BSD 3ms-24ms validation restoration over the official GoPro TURTLE G.",
+    "controlled_bsd_adaptation": "B, obtained by fine-tuning G on strictly causal BSD 3ms-24ms train clips, improves BSD validation over G while using useful strictly-past K/V history.",
+    "dpdd_addition": "BD, trained with the identical BSD schedule as B plus one fixed DPDD pass, improves DPDD validation over B while preserving BSD restoration and useful K/V history."
+  },
+  "arms": {
+    "E": {
+      "description": "frozen official Unblur-SLAM EVSSM",
+      "architecture": "EVSSM",
+      "training": "none_in_this_study",
+      "role": "external_single_frame_reference"
+    },
+    "G": {
+      "description": "frozen official GoPro TURTLE",
+      "architecture": "TURTLE_t1",
+      "training": "official_GoPro_pretraining_only",
+      "role": "synthetic_domain_official_reference"
+    },
+    "O": {
+      "description": "frozen official BSD 3ms-24ms TURTLE",
+      "architecture": "TURTLE_t0",
+      "training": "official_BSD_3ms24ms_pretraining_only",
+      "role": "real_camera_domain_official_reference"
+    },
+    "B": {
+      "description": "G fine-tuned on BSD 3ms-24ms train only",
+      "architecture": "TURTLE_t1",
+      "training": "controlled_BSD_3ms24ms_causal_clips",
+      "role": "controlled_real_camera_video_adaptation"
+    },
+    "BD": {
+      "description": "G fine-tuned on the identical BSD schedule as B plus one DPDD train pass",
+      "architecture": "TURTLE_t1",
+      "training": "controlled_BSD_3ms24ms_plus_DPDD",
+      "role": "controlled_added_defocus_data_intervention"
+    }
+  },
+  "comparison_contract": {
+    "same_architecture_primary": ["B_minus_G", "BD_minus_B", "BD_minus_G"],
+    "raw_common_baseline": {
+      "identity": "the exact paired BSD blurry RGB input scored against its paired sharp RGB target",
+      "model": "none",
+      "state": "none",
+      "required_in_arms": ["E", "G", "O", "B", "BD"],
+      "per_frame_identity_and_metric_consistency_required": true,
+      "metric_max_abs_tolerance": 1e-12,
+      "reported_deltas": ["E_minus_raw", "G_minus_raw", "O_minus_raw", "B_minus_raw", "BD_minus_raw"]
+    },
+    "cross_official_model_comparison": "O_minus_G compares official domain-specific releases but is not an equal-architecture, equal-data, or equal-training-budget causal estimate because O is t0 and G is t1.",
+    "external_reference_only": "E is a different architecture and is descriptive only.",
+    "same_evaluation_data": "All five arms use the exact same ordered BSD validation pairs and exact same ordered DPDD validation pairs.",
+    "controlled_B_vs_BD": "Every B/BD seed starts from byte-identical G and receives identical BSD clip order, crop/augmentation, causal loss, parameter scope, optimizer steps, scheduler, and BSD RNG draws. BD alone receives DPDD gradients.",
+    "compute_disclosure": "B and BD are optimizer-step matched, not FLOP matched: BD performs 70 additional DPDD forwards/backwards. No training-efficiency claim may use B versus BD."
+  },
+  "models": {
+    "evssm_E": {
+      "checkpoint": "/srv/szha0669/unblur-slam/pretrained/net_g_latest_batch_8_no_NYU.pth",
+      "checkpoint_sha256": "4c18cd0c783b88e0c4efb8afb60642afed6bdc682cb076bcdd8c358e3c565b41",
+      "architecture": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/thirdparty/EVSSM/models/EVSSM.py",
+      "architecture_sha256": "d28b59d22be7b5a9d2e0247062b25142d62fc9fff16de66963f2e001620accd4",
+      "backend_source": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/src/deblur_backends.py",
+      "backend_source_sha256": "7638d98c8af8baca5d7f414ee2a13e9612d7c1c7b4dda8d6b497bdeb5a8f3b68",
+      "builder_source": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/precompute_framecrafter_evssm.py",
+      "builder_source_sha256": "69b918137859b1131bdf4bc5490879cba4370a01e0254c46321e26b9aec4f5a9",
+      "strict_state_load": true,
+      "inference_precision": "CUDA_FP32",
+      "import_graph": {
+        "entry_class": "thirdparty.EVSSM.models.EVSSM.EVSSM",
+        "backend_class": "src.deblur_backends.EVSSMBackend",
+        "checkpoint_builder": "scripts.precompute_framecrafter_evssm.build_evssm_inference",
+        "source_files_content_pinned": true,
+        "required_runtime_modules": ["torch", "einops", "mamba_ssm", "torchvision", "numpy"]
+      }
+    },
+    "turtle_shared_repo": {
+      "repo": "/srv/szha0669/unblur-slam/external/TURTLE",
+      "repo_commit": "7094f4221b64ad0962b4f27ff1b76d788836e804",
+      "upstream_inference": "/srv/szha0669/unblur-slam/external/TURTLE/basicsr/inference.py",
+      "upstream_inference_sha256": "73f8b16a014f888f49bdf4bf3a1da40f4d930056a01dfe6ab07e9678b7384b78"
+    },
+    "turtle_G": {
+      "architecture_variant": "t1",
+      "architecture": "/srv/szha0669/unblur-slam/external/TURTLE/basicsr/models/archs/turtle_t1_arch.py",
+      "architecture_sha256": "4d19c676f92574dbad493eb591312fdeaf2b3b519f57410af2ed95fdbef5f058",
+      "config": "/srv/szha0669/unblur-slam/external/TURTLE/options/Turtle_Deblur_Gopro.yml",
+      "config_sha256": "123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23",
+      "checkpoint": "/srv/szha0669/unblur-slam/pretrained/turtle/GoPro_Deblur.pth",
+      "checkpoint_sha256": "10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82",
+      "state_tensors": 633,
+      "parameters": 59079548,
+      "use_both_input": false
+    },
+    "turtle_O": {
+      "architecture_variant": "t0",
+      "architecture": "/srv/szha0669/unblur-slam/external/TURTLE/basicsr/models/archs/turtle_arch.py",
+      "architecture_sha256": "0e2b18ee87797094a10d41da097bfe49d46b147c78a35c45ca88fcd72c9ee247",
+      "config": "/srv/szha0669/unblur-slam/external/TURTLE/options/Turtle_Derain_VRDS.yml",
+      "config_sha256": "f99ce8e32f1ec87b7ab3933158d3297e97de083fa034efa231c224ab787ad0b1",
+      "config_name_disclosure": "The VRDS/deraining-named YAML is exactly what upstream's commented BSD inference recipe parses while overriding model_type=t0.",
+      "checkpoint": "/srv/szha0669/real_video_data/bsd_3ms24ms_official_quarantine/BSD_Deblur.pth",
+      "checkpoint_sha256": "183d5e344488382a39c32aad86559e6fd568954134ddfee8793f5851a2cdf809",
+      "checkpoint_bytes": 234739171,
+      "checkpoint_mode": "0444",
+      "payload_keys": ["params"],
+      "state_tensors": 621,
+      "parameters": 58620800,
+      "strict_t0_load_missing": 0,
+      "strict_t0_load_unexpected": 0,
+      "n_sequence": 5,
+      "num_frames_tocache": 3,
+      "use_both_input": false,
+      "cache_slots": 8,
+      "cache_population_mask": [false, false, false, true, true, true, true, true]
+    }
+  },
+  "seeds": [17, 42, 73],
+  "data": {
+    "bsd": {
+      "identity": "Beam-Splitter Deblurring Dataset (BSD), 3ms sharp - 24ms blur setting",
+      "official_repo": "https://github.com/zzh-tech/ESTRNN",
+      "primary_paper": "https://arxiv.org/abs/2106.16028",
+      "blur_origin": "real_camera_long_exposure",
+      "acquisition": "two synchronized co-axis cameras with center-aligned sharp exposure inside blurry exposure",
+      "synthetic_high_fps_average": false,
+      "exposure_setting": "3ms24ms",
+      "frequency_fps": 15,
+      "resolution_width_height": [640, 480],
+      "official_split_facts": {
+        "train_sequences_declared": 60,
+        "train_pairs_declared": 6000,
+        "validation_sequences": 20,
+        "validation_pairs": 2000,
+        "sealed_test_sequences_declared_only": 20,
+        "sealed_test_pairs_declared_only": 3000
+      },
+      "dataset_root": "__BIND_BSD_TRAIN_VALIDATION_ROOT_BEFORE_LAUNCH__",
+      "dataset_manifest": "__BIND_BSD_DATASET_MANIFEST_BEFORE_LAUNCH__",
+      "dataset_manifest_sha256": "__BIND_SHA256_BEFORE_LAUNCH__",
+      "materialization_audit": "__BIND_BSD_TRAIN_VALIDATION_AUDIT_BEFORE_LAUNCH__",
+      "materialization_audit_sha256": "__BIND_SHA256_BEFORE_LAUNCH__",
+      "train_manifest": "__BIND_BSD_TRAIN_MANIFEST_BEFORE_LAUNCH__",
+      "train_manifest_sha256": "__BIND_SHA256_BEFORE_LAUNCH__",
+      "validation_manifest": "__BIND_BSD_VALIDATION_MANIFEST_BEFORE_LAUNCH__",
+      "validation_manifest_sha256": "__BIND_SHA256_BEFORE_LAUNCH__",
+      "canonical_sequence_schema": "unblur_slam.bsd_paired_video_sequence.v1",
+      "required_manifest_facts": [
+        "split=train or validation before any path is resolved",
+        "exposure=3ms24ms",
+        "capture and sequence identity",
+        "gap-free capture order",
+        "100 equal blurry and sharp paths",
+        "per-frame blurry and sharp SHA256",
+        "center-aligned synchronized paired target"
+      ],
+      "sealed_test": {
+        "test_manifest_path_in_contract": null,
+        "test_pixel_paths_in_contract": false,
+        "test_pixels_opened": false,
+        "test_images_decoded": false,
+        "test_model_outputs_computed": false,
+        "test_metrics_computed": false,
+        "policy": "BSD test remains sealed regardless of validation outcome; opening it requires a new independently frozen protocol."
+      }
+    },
+    "dpdd": {
+      "repository": "JacobLinCool/DPDD",
+      "revision": "52e4035a045ea1763313b9ce2b27cf2e620cfc30",
+      "root": "/srv/szha0669/unblur-slam/causal_video_data/dpdd_hf_png16_rev52e403_v1",
+      "dataset_manifest": "/srv/szha0669/unblur-slam/causal_video_data/dpdd_hf_png16_rev52e403_v1/dataset_manifest.json",
+      "dataset_manifest_sha256": "68c787fdc61222701b3d63359a7be767a03aec8d22588e566e1140b58e9be4c9",
+      "train_manifest": "/srv/szha0669/unblur-slam/causal_video_data/dpdd_hf_png16_rev52e403_v1/manifests/train.jsonl",
+      "train_manifest_sha256": "a2a97790de739b9d59efea0fc811255618e33b32ba0e2874e25f35c1f66c933c",
+      "validation_manifest": "/srv/szha0669/unblur-slam/causal_video_data/dpdd_hf_png16_rev52e403_v1/manifests/validation.jsonl",
+      "validation_manifest_sha256": "926b45f3717cf5d99c59ce04ce7e78c320419c72530fb6c690b7c6fe14660712",
+      "train_pairs": 350,
+      "validation_pairs": 74,
+      "sealed_test_pixels_opened": false,
+      "sealed_test_metrics_computed": false,
+      "distribution_warning": "The mirror card license declaration does not itself establish redistribution rights for original DPDD pixels."
+    }
+  },
+  "training": {
+    "trained_arms": ["B", "BD"],
+    "terminal_checkpoint_only": true,
+    "validation_during_training": false,
+    "early_stopping": false,
+    "initialization": "byte_identical_official_G",
+    "bsd_passes": 5,
+    "one_clip_per_sequence_per_pass": true,
+    "bsd_sequences_per_pass": 60,
+    "bsd_clip_length": 5,
+    "optimizer_steps": 300,
+    "attempted_optimizer_steps": 300,
+    "executed_optimizer_steps": 300,
+    "amp_skipped_optimizer_steps": 0,
+    "loss_start_frame_index": 1,
+    "crop_size": 192,
+    "augmentation": "one deterministic paired crop/flip/quarter-turn shared by all blurry and sharp frames within each BSD clip",
+    "bptt": "full_causal_five_frame_clip",
+    "cache": "K/V=None at each BSD clip boundary, carried only within that clip, and never carried across sequences; no future frame is used",
+    "future_frames_used": false,
+    "trainable_scope": {
+      "history_attention_tensors": 56,
+      "history_attention_parameters": 3475994,
+      "spatial_head_tensors": 30,
+      "spatial_head_parameters": 105283,
+      "all_other_tensors_frozen": true,
+      "dpdd_history_gradient": "forbidden_and_asserted_none"
+    },
+    "dpdd": {
+      "arm": "BD_only",
+      "passes": 1,
+      "pairs": 350,
+      "batch_size": 5,
+      "backward_steps": 70,
+      "placement": "70 deterministic approximately-even positions within the 300 matched BSD optimizer steps",
+      "cache": "K/V=None before every independent image and returned K/V discarded",
+      "rng_contract": "torch CPU and all CUDA RNG states are restored before the matched BSD forward"
+    },
+    "joint_step": "On a scheduled BD step: DPDD backward with history frozen, RNG restore, matched BSD backward, groupwise clipping, exactly one optimizer step, exactly one scheduler step.",
+    "optimizer": "AdamW",
+    "betas": [0.9, 0.99],
+    "learning_rates": {"history_attention": 0.00001, "spatial_head": 0.00001},
+    "weight_decay": {"history_attention": 0.001, "spatial_head": 0.0001},
+    "scheduler": "CosineAnnealingLR_Tmax300_eta_min_1e-7",
+    "amp": true,
+    "amp_overflow_policy": "fail_closed_no_checkpoint",
+    "groupwise_gradient_clip_norm": 1.0,
+    "bsd_objective": {
+      "l1": 1.0,
+      "fft_l1": 0.1,
+      "adjacent_temporal_delta_l1": 0.1,
+      "ordered_vs_cyclic_shuffled_strict_past_rank": 1.0,
+      "rank_margin": 0.0001
+    },
+    "dpdd_objective": {
+      "l1": 1.0,
+      "fft_l1": 0.1,
+      "temporal": 0.0
+    }
+  },
+  "evaluation": {
+    "precision": {"E": "CUDA_FP32", "G_O_B_BD": "CUDA_FP16"},
+    "padding": "right_bottom_to_multiple_8_then_crop_back",
+    "warmup_unmeasured_calls_per_model": 1,
+    "native_resolution_bsd": [640, 480],
+    "two_pass_execution": {
+      "pass_1": "timing_only_normal_inference_no_target_decode_no_metrics_no_history_controls",
+      "pass_2": "independent_quality_and_history_control_replay_not_timed",
+      "state_reset_between_passes_and_sequences": true,
+      "timing_samples_from_pass_1_only": true,
+      "quality_or_controls_in_timing": false
+    },
+    "bsd_validation": {
+      "arms": ["E", "G", "O", "B", "BD"],
+      "ordered_pairs": 2000,
+      "sequence_boundary": "reset all TURTLE K/V; never carry across sequences",
+      "steady_frame_index_min": 3,
+      "steady_frames": 1940,
+      "metrics": ["RGB_PSNR", "RGB_SSIM", "RGB_L1", "synchronized_model_step_latency"],
+      "reporting": ["all_frames", "steady_pooled", "per_sequence"],
+      "raw_common_baseline": {
+        "reported": ["all_frames", "steady_pooled", "per_sequence", "per_frame"],
+        "same_frame_order_required_across_all_arms": true,
+        "same_per_frame_metrics_required_across_all_arms": true,
+        "max_abs_metric_difference": 1e-12
+      },
+      "turtle_history_controls": [
+        "normal_stream",
+        "reset_cache_on_frozen_control_subset",
+        "repeat_current_for_complete_past_prefix_on_frozen_control_subset",
+        "independent_incremental_ordered_replay_all_frames",
+        "cyclic_shuffled_complete_strict_past_on_frozen_control_subset"
+      ],
+      "expensive_history_control_frame_indices_per_sequence": [3, 19, 39, 59, 79, 99],
+      "expensive_history_control_frames": 120,
+      "ordered_replay_frames": 2000,
+      "history_forward_accounting_per_100_frame_sequence_excluding_warmup": 814,
+      "history_forward_accounting_per_full_20_sequence_model_excluding_warmup": 16280,
+      "normal_and_all_controls_share_backend_autocast_path": true,
+      "history_controls_in_latency": false,
+      "timing_only_normal_forwards_per_full_model": 2000,
+      "quality_history_forwards_per_full_turtle_model": 16280,
+      "combined_forwards_per_full_turtle_model_excluding_warmup": 18280,
+      "timing_and_quality_passes_independent": true,
+      "evssm_history_controls": "not_applicable_stateless_single_frame_reference"
+    },
+    "dpdd_validation": {
+      "arms": ["E", "G", "O", "B", "BD"],
+      "ordered_pairs": 74,
+      "cache": "hard reset before every image and discard afterward",
+      "two_pass_execution": {
+        "timing_only_model_steps_per_arm": 74,
+        "quality_model_steps_per_arm": 74,
+        "combined_model_steps_per_arm_excluding_warmup": 148,
+        "targets_metrics_and_lpips_in_timing_pass": false,
+        "timing_and_quality_passes_independent": true
+      },
+      "latency_disclosure": "E_FP32_and_TURTLE_FP16_dedicated_model_step_latency_reported_separately_not_precision_FLOP_architecture_or_SLAM_matched",
+      "metrics": ["RGB_PSNR", "RGB_SSIM", "AlexNet_LPIPS", "RGB_L1", "synchronized_model_step_latency"],
+      "interpretation": "single-image current-frame spatial restoration only; never evidence of useful history"
+    },
+    "frozen_reference_execution": "E, G, and O are seed-free content-addressed references. Quality may be shared across B/BD seed comparisons; latency is reported only from each arm's own run.",
+    "staged_execution": {
+      "stage_0": "CPU strict-load E/G/O identities and validate data contracts without pixels from any test split.",
+      "stage_1": "Functional E/G/O validation smoke on a preregistered prefix; it can stop crashes but cannot change thresholds or select a checkpoint.",
+      "stage_2": "Full E/G/O BSD validation operational qualification checks only identity, crash-free finite output, exact coverage, and replay implementation. O quality, O-minus-G quality, and O history quality never authorize or block B/BD training.",
+      "stage_3": "Train all six terminal B/BD checkpoints, then run all preregistered BSD and DPDD validation evaluations."
+    }
+  },
+  "preregistered_validation_gates": {
+    "aggregation": {
+      "bsd_steady_pooled": "unweighted arithmetic frame mean over the same 1940 frames with within-sequence index >=3",
+      "bsd_history_control_subset": "unweighted arithmetic frame mean over frozen within-sequence indices [3,19,39,59,79,99], exactly 120 frames for full validation",
+      "dpdd": "paired per-image deltas followed by arithmetic mean over the same ordered 74 images",
+      "psnr": "arithmetic mean of per-frame or per-image PSNR, never PSNR from pooled MSE",
+      "all_three_B_BD_seeds_and_all_primary_gates_conjunctive": true
+    },
+    "bsd_adaptation_B_minus_G": {
+      "per_seed_steady_pooled_psnr_db_min": 0.1,
+      "per_seed_steady_pooled_ssim_min": 0.0,
+      "per_seed_steady_pooled_l1_max": 0.0
+    },
+    "dpdd_value_BD_minus_B": {
+      "per_seed_psnr_db_min": 0.1,
+      "per_seed_ssim_min": 0.0,
+      "per_seed_lpips_max": 0.0,
+      "per_seed_l1_max": 0.0
+    },
+    "bsd_preservation_BD_minus_B": {
+      "per_seed_steady_pooled_psnr_db_min": -0.1,
+      "per_seed_steady_pooled_ssim_min": -0.002,
+      "per_seed_steady_pooled_l1_max": 0.002
+    },
+    "history_value": {
+      "arms": ["B", "BD"],
+      "B_and_BD_per_seed_steady_pooled_normal_minus_reset_psnr_db_min": 0.02,
+      "B_and_BD_per_seed_steady_pooled_normal_minus_repeat_psnr_db_min": 0.02,
+      "B_and_BD_per_seed_steady_pooled_normal_minus_shuffled_psnr_db_min": 0.02,
+      "aggregation_frames_per_sequence": [3, 19, 39, 59, 79, 99],
+      "per_sequence_gaps": "reported_descriptively_not_gating",
+      "O_history_quality_authorizes_training": false
+    },
+    "temporal_preservation": {
+      "per_seed_BD_minus_B_normal_steady_pooled_psnr_db_min": -0.05
+    },
+    "ordered_replay": {
+      "max_abs_over_every_pixel_frame_and_G_O_B_BD_checkpoint_max": 0.000001
+    },
+    "terminal_rule": "Report every metric and failure. No threshold, seed, budget, checkpoint, aggregation, or split may change after any validation output is observed. Passing validation does not authorize BSD or DPDD test."
+  },
+  "sealed_outputs": {
+    "output_root": "__BIND_FRESH_OUTPUT_ROOT_BEFORE_LAUNCH__",
+    "overwrite": false,
+    "checkpoint_naming": "checkpoints/{B|BD}/seed_{17|42|73}.pth",
+    "validation_only_report": "validation_only_report.json",
+    "test_report": null
+  },
+  "runtime": {
+    "physical_gpu": 1,
+    "visible_device_environment": "CUDA_VISIBLE_DEVICES=1",
+    "cuda_device_order_environment": "CUDA_DEVICE_ORDER=PCI_BUS_ID",
+    "script_device": "cuda:0",
+    "expected_gpu_model": "NVIDIA RTX A6000",
+    "expected_gpu_uuid": "GPU-3501b285-78cd-1494-87f1-ccac2136866e",
+    "expected_gpu_serial": "1711224002341",
+    "minimum_total_memory_bytes": 50465865728,
+    "global_lock": "/srv/szha0669/unblur-slam/locks/physical_gpu1.lock",
+    "lock_acquired_before_cuda_query_torch_import_model_or_pixels": true,
+    "require_idle_no_compute_pid_on_lock_entry": true,
+    "monitor_between_and_during_actions_fail_on_unfamiliar_pid": true,
+    "logical_identity_required_in_every_report_and_receipt": true,
+    "executor_runs_commands": true,
+    "large_artifacts_on_srv_only": true
+  },
+  "torch_runtime_policy": {
+    "torch_version": "2.3.1",
+    "torch_cuda_build": "12.1",
+    "cudnn_version": 8902,
+    "cuda_matmul_allow_tf32": false,
+    "cudnn_allow_tf32": false,
+    "cudnn_benchmark": false,
+    "cudnn_deterministic": true,
+    "deterministic_algorithms": true,
+    "deterministic_algorithms_warn_only": false,
+    "deterministic_debug_mode": 2,
+    "float32_matmul_precision": "highest",
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+    "NVIDIA_TF32_OVERRIDE": "0"
+  },
+  "executor_child_environment": {
+    "PYTHONHASHSEED": "0",
+    "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+    "NVIDIA_TF32_OVERRIDE": "0",
+    "PYTHONNOUSERSITE": "1",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "environment_fingerprint": {
+    "schema": "unblur_slam.bsd_dpdd_environment_fingerprint.v1",
+    "python": {
+      "executable": "/srv/szha0669/unblur-slam/env/bin/python",
+      "realpath": "/srv/szha0669/unblur-slam/env/bin/python3.10",
+      "executable_sha256": "3aecd4f06769d24b66d327d33f95b72b59759a77756de09ff07270cf4ef875d7",
+      "implementation": "CPython",
+      "version": "3.10.20",
+      "prefix": "/srv/szha0669/unblur-slam/env"
+    },
+    "required_distributions": {
+      "einops": "0.8.2",
+      "lpips": "0.1.4",
+      "mamba-ssm": "2.2.2",
+      "numpy": "1.26.4",
+      "opencv-python": "4.8.1.78",
+      "pillow": "12.3.0",
+      "pyyaml": "6.0.3",
+      "scikit-image": "0.25.2",
+      "torch": "2.3.1",
+      "torchmetrics": "1.9.0",
+      "torchvision": "0.18.1"
+    },
+    "all_installed_distributions_count": 176,
+    "all_installed_distributions_sha256": "ea0681e9c1b32970c83ea5f946748b9ee4fcc5c22f31b8c7b3ebb73df542b0cf",
+    "torch_build": {
+      "version": "2.3.1",
+      "cuda": "12.1",
+      "git_version": "d44533f9d073df13895333e70b66f81c513c1889",
+      "version_file": "/srv/szha0669/unblur-slam/env/lib/python3.10/site-packages/torch/version.py",
+      "version_file_sha256": "795de423d841ba847b5736a75c1964f43eeae306b8582a7a2bb92dfba93df7a7"
+    },
+    "nvidia_smi": {
+      "path": "/usr/bin/nvidia-smi",
+      "sha256": "4859c3eb3c53f4dbedaaf5f22f144bf9f16acb823aec483f846679080c947e72"
+    },
+    "fingerprint_sha256": "01819a5e8b24d71ab3c0176e0f5e290d71e289cf9ff6712f66b71e96d7305562"
+  },
+  "code_bundle": {
+    "schema": "unblur_slam.bsd_dpdd_code_bundle.v1",
+    "root": "/home/szha0669/Unblur-SLAM-framecrafter-resplat",
+    "hash_algorithm": "sha256",
+    "canonical_digest_algorithm": "sha256_canonical_json_sorted_keys",
+    "files": {
+      "official_bsd_backend_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/src/turtle_official_bsd_backend.py",
+      "contract_library_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/bsd_dpdd_contract.py",
+      "cpu_preflight_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/preflight_turtle_bsd_dpdd_v1.py",
+      "plan_runner_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/run_turtle_bsd_dpdd_v1.py",
+      "B_BD_trainer_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/train_turtle_bsd_dpdd.py",
+      "streaming_trainer_dependency_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/train_turtle_streaming.py",
+      "mixed_defocus_trainer_dependency_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/train_turtle_mixed_defocus.py",
+      "bsd_streaming_evaluator_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/evaluate_turtle_bsd_streaming.py",
+      "bsd_dpdd_evaluator_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/evaluate_turtle_bsd_dpdd.py",
+      "cpu_contract_test_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/tests/test_turtle_bsd_dpdd_v1_contract.py",
+      "runtime_executor_contract_test_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/tests/test_bsd_dpdd_runtime_executor_v4.py",
+      "evaluator_reporter_contract_test_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/tests/test_bsd_v4_evaluator_reporter.py",
+      "evssm_dpdd_contract_test_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/tests/test_evssm_dpdd_validation.py",
+      "existing_streaming_evaluator_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/evaluate_turtle_streaming.py",
+      "existing_single_image_evaluator_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/evaluate_turtle_single_image_defocus.py",
+      "existing_evssm_dpdd_evaluator_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/evaluate_evssm_dpdd_validation.py",
+      "existing_evssm_video_precompute_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/precompute_video_deblur_evssm.py",
+      "evssm_builder_dependency_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/precompute_framecrafter_evssm.py",
+      "framecrafter_pipeline_import_dependency_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/src/framecrafter_pipeline.py",
+      "evssm_architecture_dependency_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/thirdparty/EVSSM/models/EVSSM.py",
+      "evssm_backend_dependency_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/src/deblur_backends.py",
+      "video_dataset_dependency_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/src/video_deblur/dataset.py",
+      "bsd_acquisition_dependency_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/acquire_bsd_3ms24ms.py",
+      "full_bsd_materializer_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/materialize_bsd_3ms24ms.py",
+      "validation_prefix_materializer_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/materialize_bsd_3ms24ms_validation_prefix.py",
+      "reference_contract_binder_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/bind_bsd_validation_reference_contract.py",
+      "runtime_guard_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/bsd_dpdd_runtime.py",
+      "true_executor_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/execute_turtle_bsd_dpdd_v1.py",
+      "final_reporter_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/report_turtle_bsd_dpdd_v1.py",
+      "direct_float_evssm_bsd_evaluator_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/evaluate_evssm_bsd_validation.py",
+      "turtle_backend_shared_autocast_sha256": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/src/turtle_backend.py"
+    },
+    "bundle_sha256": "e5ecf41e9d2ff6d9622c3ab8cf902b4e94453440dbc4b462ff166e86f1673d0b",
+    "file_count": 31,
+    "executor_rehash_inside_global_lock_before_cuda_or_pixels": true,
+    "preflight_rehash": true
+  },
+  "implementation_pins": {
+    "official_bsd_backend_sha256": "9708c9b8b25cae81b6d163bc1bf9ac55a780c630a88816c30f2e7ef6202c19f0",
+    "contract_library_sha256": "09a684ed99b20c8d7a57ca9bf3605975ebef31cd905a577464cc7307f65eb89d",
+    "cpu_preflight_sha256": "10a2cd993fba31276057c89ff6dc91431770133070023aacea1dd914bd65ab1f",
+    "plan_runner_sha256": "ece75657b670b7963089e0407f67479385efba14912bf07e1de91bcebc7c2f46",
+    "B_BD_trainer_sha256": "63936a79c24a69c2a67b680f34a57e9bf1a0f38a4b4be4ff10d960468e4e5b1b",
+    "streaming_trainer_dependency_sha256": "2379e91cc338e51ffc843c74e3b28d0460b84b4f1dab562320b9557aa1e1bd1c",
+    "mixed_defocus_trainer_dependency_sha256": "f8c44db993ede19169c21b91785b01cfe27eed3f859e5c91851dc8d4995fe9ee",
+    "bsd_streaming_evaluator_sha256": "8caaea24c6490e3b3d9877b4bd5ebc44163fc2c05687b5a09f5cbe8824cfceb8",
+    "bsd_dpdd_evaluator_sha256": "0fc89ffeff6af8292e597cab06d3de1248229d257972f9a918849aeef9a03733",
+    "cpu_contract_test_sha256": "0cc0ae6fc20ed1fa853557d2cd2ff253725dbfa24cdfc0cb529db6d900021920",
+    "runtime_executor_contract_test_sha256": "c3083fce2656b5f3daf0e167169a0e85c164db6b27c48bc84994b5cc396935e2",
+    "evaluator_reporter_contract_test_sha256": "c3ae4128c4c65a099bc35c618ff0d6f34c6996b55f808f6f9c1123e31d5f31a8",
+    "evssm_dpdd_contract_test_sha256": "ba176dc062b191e585bfc8d81314007b79bd692d03ded6606c994fa57b97b86b",
+    "existing_streaming_evaluator_sha256": "4abad637ed7c2ab60f1fb57c484d191a710fffe77abaa272b1af5708f4d769cf",
+    "existing_single_image_evaluator_sha256": "723220e61a19a1d5450a486d0a5a11745488e3df979c324a5bbcc52624b3507b",
+    "existing_evssm_dpdd_evaluator_sha256": "6a854a3bf70a7f575f9b39e6addede6b45dfd0b77278a5b5690a93f10b2a9c7d",
+    "existing_evssm_video_precompute_sha256": "97bee19dae8448bf329f5c18f7ff5daaf597a1e64f32a4af347f840baa3a3c82",
+    "evssm_builder_dependency_sha256": "69b918137859b1131bdf4bc5490879cba4370a01e0254c46321e26b9aec4f5a9",
+    "framecrafter_pipeline_import_dependency_sha256": "21190815258ac1d35161a3c905b9935c9ede98c634993dea3465681beb32094e",
+    "evssm_architecture_dependency_sha256": "d28b59d22be7b5a9d2e0247062b25142d62fc9fff16de66963f2e001620accd4",
+    "evssm_backend_dependency_sha256": "7638d98c8af8baca5d7f414ee2a13e9612d7c1c7b4dda8d6b497bdeb5a8f3b68",
+    "video_dataset_dependency_sha256": "01c1c39a1f9c7fbec3154c1bc76c49b4cd30cbfed35bc9e7c0508aa0bb0b3296",
+    "bsd_acquisition_dependency_sha256": "778d94f93d526ea1aa99098e1af38280b7dd20ce60c410722d4ed66d067dd250",
+    "full_bsd_materializer_sha256": "71e349cb1d903f89a6f65f6312737f8efb03df8303172b491922d3aa8cf83fae",
+    "validation_prefix_materializer_sha256": "cf6e84260ebe347150a9eb1a64805fb520f9b84283897fcd4b5514142d934a4f",
+    "reference_contract_binder_sha256": "3ed743c5d46c5ea9d16ad500446a954625b7ef58061d63ab7b7e5274984532bd",
+    "runtime_guard_sha256": "2b81f77b30bf78eca547657c6bdb64dabe423fb5cd0fdb8e18aa676735cfe096",
+    "true_executor_sha256": "ba006f6800322812ddf3e9f9eda82a8d45de88905552386b59c28ba06984b7fb",
+    "final_reporter_sha256": "316ee54917fa14c517cbb7cf048f386a555069a21590962d1fb4b39a891e3a6d",
+    "direct_float_evssm_bsd_evaluator_sha256": "c1bb25af00d4507003cbced8481ed3677bde0d0efa0f3344a9950b2b6d57c4dd",
+    "turtle_backend_shared_autocast_sha256": "aeb75dc8013c45237be97fe3198c8e2aa7ff2250084749e07bab878b6fb913e6"
+  },
+  "binding_policy": {
+    "current_blocker": "Canonical BSD 3ms24ms full train remains unbound. A separately content-addressed validation-only prefix may bind E/G/O references while launch_authorized remains false.",
+    "allowed_before_launch": "Create either (a) a reference-only contract binding dataset root, dataset/audit/validation manifests and a fresh output root while leaving exactly BSD train path/hash unbound, or (b) a full contract after train/validation audit. Bind final implementation hashes before freezing.",
+    "forbidden_before_or_after_launch": "Changing arms, hypotheses, O identity, seeds, B/BD budget, trainable scope, history controls, gates, aggregation, or sealed-test policy.",
+    "reference_bound_status": "bsd_validation_references_preregistered_training_blocked",
+    "bound_status_required": "preregistered_before_any_bsd_or_dpdd_training_or_bsd_model_evaluation",
+    "bound_launch_authorized_required": true,
+    "bound_contract_must_be_new_file": true
+  },
+  "required_final_report_disclosures": {
+    "O_vs_G": "O is official TURTLE t0 and G is official TURTLE t1; they differ in architecture, training data, and training budget, so O-minus-G is descriptive and not a causal estimate.",
+    "E": "E is a stateless external single-frame EVSSM reference and is not a same-method or streaming-history arm.",
+    "precision": "E runs CUDA FP32 with TF32 disabled; TURTLE runs CUDA FP16 autocast with TF32 disabled, so latency is model-step scoped but not precision-, FLOP-, or architecture-matched.",
+    "latency": "Latency is a dedicated timing-only normal model-step pass after one unmeasured warm-up and excludes decode, targets, metrics, quality pass, history controls, reporting, and SLAM.",
+    "dpdd_latency": "DPDD E and TURTLE latency is reported separately from dedicated timing-only passes; E is FP32 and TURTLE is FP16, so it is not precision-, FLOP-, architecture-, or SLAM-matched.",
+    "scope": "Results support restoration-module quality and model-step latency only, not SLAM quality, SLAM latency, FPS, or end-to-end online speed."
+  },
+  "claims_forbidden": [
+    "BSD blur is synthesized by averaging high-frame-rate sharp frames",
+    "G and O have the same architecture or training budget",
+    "O-minus-G is a causal estimate of architecture, data, or training-budget effects",
+    "E is a same-method arm",
+    "E is a stateful causal streaming-video model",
+    "E FP32 and TURTLE FP16 latency are precision-matched or FLOP-matched",
+    "DPDD single-image gains prove causal-history value",
+    "B and BD are training-FLOP matched",
+    "validation metrics are BSD or DPDD test results",
+    "passing validation automatically unlocks BSD or DPDD test",
+    "restoration-module validation quality or model-step latency is SLAM quality, SLAM latency, FPS, or end-to-end online speed"
+  ]
+}

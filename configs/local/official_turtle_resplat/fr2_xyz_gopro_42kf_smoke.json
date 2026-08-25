@@ -1,0 +1,80 @@
+{
+  "schema": "unblur_slam.official_turtle_resplat_pipeline.v1",
+  "experiment_id": "fr2_xyz_gopro_turtle_stream_0_2764_official_resplat_small8v_paired_v1",
+  "source": {
+    "dataset": "TUM_RGBD/freiburg2_xyz",
+    "frames_csv_sha256": "549f28a3c34d209c6d3741eae8b167268ff5dcd84ee24a572d68a8dcb66c7177",
+    "pose_source": "droid_traj_est_not_align",
+    "uses_ground_truth_pose": false
+  },
+  "selection": {
+    "source_indices": [
+      0, 9, 15, 49, 58, 72, 89, 109, 125, 166, 220, 319, 374, 407,
+      435, 470, 483, 523, 568, 704, 750, 789, 827, 926, 1004, 1160,
+      1251, 1342, 1409, 1460, 1553, 1692, 1795, 1889, 1978, 2055,
+      2206, 2282, 2358, 2425, 2590, 2764
+    ],
+    "num_context": 8,
+    "context_strategy": "fps",
+    "num_target": 34,
+    "target_strategy": "remaining"
+  },
+  "official_turtle": {
+    "origin": "https://github.com/Ascend-Research/Turtle",
+    "commit": "7094f4221b64ad0962b4f27ff1b76d788836e804",
+    "architecture_sha256": "4d19c676f92574dbad493eb591312fdeaf2b3b519f57410af2ed95fdbef5f058",
+    "config_sha256": "123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23",
+    "checkpoint_kind": "official_gopro",
+    "checkpoint_sha256": "10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82",
+    "cache_contract": "official_kv_8_incremental",
+    "required_processed_range": [0, 2764],
+    "required_cache_updates": 2765,
+    "preprocessing_contract": {
+      "raw_size": [640, 480],
+      "undistort": "opencv_same_K",
+      "resize_before_crop": [528, 400],
+      "crop_edges": [8, 8, 8, 8],
+      "output_size": [512, 384],
+      "K": [
+        [429.7425, 0.0, 260.2075],
+        [0.0, 434.1666666666667, 200.08333333333334],
+        [0.0, 0.0, 1.0]
+      ],
+      "distortion": [0.2312, -0.7849, -0.0033, -0.0001, 0.9172]
+    }
+  },
+  "official_resplat": {
+    "origin": "https://github.com/cvg/resplat",
+    "commit": "cae7ddc4cdbd80e05e9f5fa00f5ea02c4e9056b1",
+    "model_preset": "dl3dv_8v_256x448_small",
+    "checkpoint_sha256": "548993fede0d9536d2d914cbe51e0ebea0ad6f88c898c909e02127d59bb2be9a",
+    "num_refine": 4,
+    "near": 0.01,
+    "far": 200.0,
+    "render_chunk_size": 4
+  },
+  "excluded_legacy_components": {
+    "mapping.resplat": false,
+    "residual_replay": false,
+    "causal_evssm": false,
+    "custom_replay_sampler": false
+  },
+  "execution": {
+    "physical_gpu": 1,
+    "cuda_device_order": "PCI_BUS_ID",
+    "cuda_visible_devices": "1",
+    "process_device": "cuda:0"
+  },
+  "paths": {
+    "frames_csv": "/srv/szha0669/unblur-slam/framecrafter_preprocess/fr2_xyz/estimated_frames.csv",
+    "turtle_manifest": "/srv/szha0669/unblur-slam/turtle_stream_inputs/fr2_xyz_gopro_official_0_2764_42kf_v1/manifest.json",
+    "turtle_repo": "/srv/szha0669/unblur-slam/external/TURTLE",
+    "turtle_checkpoint": "/srv/szha0669/unblur-slam/pretrained/turtle/GoPro_Deblur.pth",
+    "resplat_repo": "/srv/szha0669/unblur-slam/external/resplat",
+    "resplat_checkpoint": "/srv/szha0669/unblur-slam/pretrained/resplat-official/resplat-small-dl3dv-256x448-view8-548993fe.pth",
+    "resplat_python": "/srv/szha0669/unblur-slam/envs/resplat-official-py312-torch270-cu128/bin/python",
+    "scene_output_dir": "/srv/szha0669/unblur-slam/official_resplat_scenes/fr2_xyz_42kf_turtle_gopro_stream_firstpass_c2w_v1",
+    "paired_output_dir": "/srv/szha0669/unblur-slam/official_resplat_smoke/fr2_xyz_42kf_turtle_gopro_stream_small8v_paired_v1",
+    "audit_output_dir": "/srv/szha0669/unblur-slam/official_resplat_smoke/fr2_xyz_42kf_turtle_gopro_stream_small8v_paired_v1_pipeline_audit"
+  }
+}

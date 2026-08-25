@@ -1,0 +1,231 @@
+{
+  "schema": "unblur_slam.turtle_replica424_dpdd_png16_mixed_validation_only.v4",
+  "status": "preregistered_before_any_mixed_gpu_training_or_dpdd_model_evaluation",
+  "created_date": "2026-08-22",
+  "scope": "exploratory_three_seed_train_plus_validation_ablation_not_a_paper_benchmark",
+  "hypothesis": "Adding real paired single-image defocus supervision to ReplicaBlurry causal-video fine-tuning can improve current-frame spatial restoration while preserving the useful causal-history behavior of TURTLE.",
+  "interpretation": {
+    "dpdd": "real-camera paired single-image defocus validation; K/V is reset for every image and therefore cannot establish a temporal-history benefit",
+    "replica": "synthetic rendered ordered-video validation used only for same-checkpoint causal-history controls",
+    "causal_evssm": "a separate historical model and ablation; it is not TURTLE and is not an arm in this experiment",
+    "resplat": "disabled and outside this frontend-only ablation",
+    "claims_forbidden": [
+      "DPDD validation improvement proves causal history",
+      "ReplicaBlurry is a real-world camera dataset",
+      "this validation-only result is a DPDD test-set or paper-comparable result",
+      "a single-seed or aggregate-only direction establishes the preregistered hypothesis"
+    ]
+  },
+  "model": {
+    "repo": "/srv/szha0669/unblur-slam/external/TURTLE",
+    "repo_commit": "7094f4221b64ad0962b4f27ff1b76d788836e804",
+    "config": "/srv/szha0669/unblur-slam/external/TURTLE/options/Turtle_Deblur_Gopro.yml",
+    "config_sha256": "123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23",
+    "architecture_sha256": "4d19c676f92574dbad493eb591312fdeaf2b3b519f57410af2ed95fdbef5f058",
+    "official_gopro_checkpoint": "/srv/szha0669/unblur-slam/pretrained/turtle/GoPro_Deblur.pth",
+    "official_gopro_checkpoint_sha256": "10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82",
+    "input_domain": "raw_rgb_0_1",
+    "use_both_input": false
+  },
+  "arms": {
+    "G": "frozen official GoPro checkpoint; no fine-tuning",
+    "V": "ReplicaBlurry ordered-video training only; history-attention plus spatial head",
+    "S": "DPDD train single images only; spatial head only; K/V reset and discarded per image",
+    "M": "mixed joint training; each optimizer step contains one DPDD batch backward followed by one Replica sequence backward"
+  },
+  "seeds": [17, 42, 73],
+  "training": {
+    "fixed_terminal_only": true,
+    "validation_during_training": false,
+    "optimizer_steps_per_trained_arm": 78,
+    "attempted_optimizer_steps": 78,
+    "executed_optimizer_steps": 78,
+    "amp_skipped_optimizer_steps": 0,
+    "crop_size": 128,
+    "dpdd_batch_size": 5,
+    "amp": true,
+    "grad_scaler": {
+      "init_scale": 1024.0,
+      "growth_interval": 2000,
+      "overflow_policy": "fail_closed_no_checkpoint"
+    },
+    "optimizer": "AdamW",
+    "learning_rates": {"history": 0.00001, "spatial_head": 0.00001},
+    "weight_decay": {"history": 0.001, "spatial_head": 0.0001},
+    "betas": [0.9, 0.99],
+    "groupwise_gradient_clip_norm": 1.0,
+    "scheduler": "CosineAnnealingLR_Tmax78_eta_min_1e-7",
+    "video_objective": {
+      "l1": 1.0,
+      "fft_l1": 0.1,
+      "adjacent_temporal_delta_l1": 0.1,
+      "ordered_vs_cyclic_shuffled_rank": 1.0,
+      "rank_margin": 0.0001,
+      "future_frames_used": false
+    },
+    "dpdd_objective": {"l1": 1.0, "fft_l1": 0.1, "temporal": 0.0},
+    "mixed_step": "two_backward_one_joint_step",
+    "mixed_rng_contract": "DPDD torch CPU and all CUDA RNG states are restored before the Replica forward so V and M receive identical Replica schedules and transforms per seed",
+    "supervision_disclosure": {
+      "uses_paired_sharp_ground_truth_rgb": true,
+      "uses_ground_truth_pose": false,
+      "uses_ground_truth_depth": false
+    }
+  },
+  "data": {
+    "replica_train": {
+      "manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/train.jsonl",
+      "sha256": "bd7caa189374683c8ffd7e8fce83cb62e5f69b73f6048808c4808dc2b4ecd2ba",
+      "root": "/srv/szha0669/unblur-slam/causal_video_data",
+      "eligible_sequences_min_length_3": 26,
+      "passes": 3
+    },
+    "replica_validation": {
+      "manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/val_temporal.jsonl",
+      "sha256": "1aa8cc7a01b82c7d759c3db70e6c7e796a26d09398f3a1fd1592d787db9f886b",
+      "sequences": 2,
+      "frames": 16,
+      "steady_frames_from_index_3": 10
+    },
+    "dpdd": {
+      "kind": "third_party_HuggingFace_mirror_of_DPDD_combined_16bit_PNG",
+      "repository": "JacobLinCool/DPDD",
+      "revision": "52e4035a045ea1763313b9ce2b27cf2e620cfc30",
+      "root": "/srv/szha0669/unblur-slam/causal_video_data/dpdd_hf_png16_rev52e403_v1",
+      "dataset_manifest": "/srv/szha0669/unblur-slam/causal_video_data/dpdd_hf_png16_rev52e403_v1/dataset_manifest.json",
+      "dataset_manifest_sha256": "68c787fdc61222701b3d63359a7be767a03aec8d22588e566e1140b58e9be4c9",
+      "train_manifest": "/srv/szha0669/unblur-slam/causal_video_data/dpdd_hf_png16_rev52e403_v1/manifests/train.jsonl",
+      "train_manifest_sha256": "a2a97790de739b9d59efea0fc811255618e33b32ba0e2874e25f35c1f66c933c",
+      "validation_manifest": "/srv/szha0669/unblur-slam/causal_video_data/dpdd_hf_png16_rev52e403_v1/manifests/validation.jsonl",
+      "validation_manifest_sha256": "926b45f3717cf5d99c59ce04ce7e78c320419c72530fb6c690b7c6fe14660712",
+      "materialization_audit": "/srv/szha0669/unblur-slam/causal_video_data/dpdd_hf_png16_rev52e403_v1.audit.json",
+      "materialization_audit_sha256": "f3ad4488a5c7cedb5742126e363e2179af0cde3497c357b82ecbfd3712fecbc2",
+      "train_pairs": 350,
+      "validation_pairs": 74,
+      "assets": 848,
+      "asset_bytes": 7243127232,
+      "image_contract": "1680x1120 PNG RGB16 decoded by cv2.IMREAD_UNCHANGED as uint16 HWC3 and divided by 65535",
+      "all_paths_and_content_hashes_unique": true,
+      "source_target_and_train_validation_disjoint": true,
+      "distribution_warning": "the pinned mirror card declares MIT, but that claim does not itself establish redistribution rights for original DPDD images"
+      ,
+      "materializer_test_requests_made": 0,
+      "materializer_test_metadata_exposure": "filenames_lfs_oids_sizes_split_aggregate_row0_url_and_manifest_text_seen_before_freeze"
+    }
+  },
+  "sealed_data_disclosure": {
+    "dpdd_validation_pixels_already_decoded_for_materialization_integrity_audit": true,
+    "dpdd_validation_model_outputs_or_metrics_observed_before_freeze": false,
+    "dpdd_test_metadata_pristine": false,
+    "dpdd_test_metadata_exposure": "filenames, LFS identifiers, sizes, split aggregate, and earlier row0 URL/manifest text are known",
+    "dpdd_test_pixel_bytes_opened": false,
+    "dpdd_test_images_decoded": false,
+    "dpdd_test_metrics_computed": false,
+    "dpdd_test_policy": "unconditionally rejected for this entire validation-only experiment regardless of validation outcome",
+    "replica_room2_manifest_bytes_known": true,
+    "replica_room2_pixels_or_metrics_opened_in_this_experiment": false
+  },
+  "evaluation": {
+    "dpdd_validation": {
+      "arms_per_seed": ["G", "V", "S", "M"],
+      "official_G_execution_policy": "G is freshly loaded and evaluated inside each of the three seed-specific G/V/S/M processes; latency is reported separately for each process and is never reused",
+      "official_G_repeat_sanity": "for every one of the 74 aligned images, max absolute cross-seed difference must be <=1e-7 separately for PSNR, SSIM, LPIPS, and L1; latency is excluded; any violation is reported as a terminal contract failure",
+      "same_ordered_74_pairs": true,
+      "cache": "hard reset before every image and discarded after it",
+      "precision": "CUDA_FP16",
+      "padding": "right_bottom_to_multiple_8_then_crop_back",
+      "warmup_unmeasured_calls_per_arm": 1,
+      "metrics": ["RGB_PSNR", "RGB_SSIM", "AlexNet_LPIPS", "RGB_L1", "synchronized_model_step_latency"],
+      "interpretation": "single-image spatial restoration only"
+    },
+    "replica_temporal_validation": {
+      "arms": ["G", "V", "S", "M"],
+      "controls": ["normal", "reset_cache", "repeat_current", "ordered_replay", "cyclic_shuffled_strict_past"],
+      "ordered_replay_max_abs": 0.000001,
+      "all_and_steady_and_per_sequence": true,
+      "official_G_execution_policy": "evaluate G once in a fresh process for this experiment; its content-addressed quality metrics may be shared across seed comparisons, but its latency is reported only as that one run"
+    },
+    "official_evssm_reference": {
+      "checkpoint": "/srv/szha0669/unblur-slam/pretrained/net_g_latest_batch_8_no_NYU.pth",
+      "checkpoint_sha256": "4c18cd0c783b88e0c4efb8afb60642afed6bdc682cb076bcdd8c358e3c565b41",
+      "same_dpdd_validation_manifest": true,
+      "interpretation": "external single-image reference; not a TURTLE training arm"
+    }
+  },
+  "preregistered_validation_gates": {
+    "aggregation_contract": {
+      "dpdd": "arithmetic mean over the same ordered 74 validation images; paired arm deltas are computed per image then arithmetically averaged",
+      "replica_global_gate_scope": "steady frames only, defined as within-sequence frame index >= 3; pool the 10 steady frames and take an unweighted arithmetic frame mean",
+      "replica_per_sequence_scope": "within each of the two validation sequences, take an unweighted arithmetic mean over that sequence's steady frames; do not macro-average these two values for the global gate",
+      "psnr": "arithmetic mean of per-image or per-frame PSNR values, never PSNR from a globally accumulated MSE",
+      "all_gates_conjunctive": true
+    },
+    "spatial_mixed_value": {
+      "per_seed_M_minus_V_dpdd_psnr_db_min": 0.10,
+      "per_seed_M_minus_V_dpdd_ssim_min": 0.0,
+      "per_seed_M_minus_V_dpdd_lpips_max": 0.0,
+      "per_seed_M_minus_V_dpdd_l1_max": 0.0,
+      "per_seed_M_minus_S_dpdd_psnr_db_min": -0.10,
+      "all_three_seeds_required": true
+    },
+    "temporal_preservation": {
+      "per_seed_M_minus_V_normal_psnr_db_min": -0.05,
+      "all_three_seeds_required": true
+    },
+    "useful_history": {
+      "per_seed_M_normal_minus_reset_psnr_db_min": 0.05,
+      "per_seed_M_normal_minus_repeat_current_psnr_db_min": 0.05,
+      "per_seed_M_normal_minus_shuffled_psnr_db_min": 0.05,
+      "per_seed_interaction_M_vs_S_psnr_db_min": 0.03,
+      "interaction_formula": "(M.normal_psnr-M.reset_psnr)-(S.normal_psnr-S.reset_psnr), evaluated on the exact same steady frames",
+      "both_replica_validation_sequences_same_direction": {
+        "M_normal_minus_reset_psnr_db_strictly_positive": true,
+        "M_normal_minus_repeat_current_psnr_db_strictly_positive": true,
+        "M_normal_minus_shuffled_psnr_db_strictly_positive": true,
+        "interaction_M_vs_S_psnr_db_strictly_positive": true
+      },
+      "all_three_seeds_required": true
+    },
+    "replay_contract": {
+      "ordered_replay_max_abs_over_every_pixel_frame_arm_and_seed_max": 0.000001
+    },
+    "terminal_rule": "all listed spatial, temporal-preservation, useful-history, per-sequence, and replay gates are conjunctive; report every metric and every failure; no threshold, aggregation, seed, checkpoint, or data split may be changed after seeing validation results"
+  },
+  "implementation_pins": {
+    "launch_preflight_sha256": "2b656266e2d6c97d7ff219bc8bd9297e7882a82e9e24cba3e76b8276c8a57794",
+    "mixed_trainer_sha256": "f8c44db993ede19169c21b91785b01cfe27eed3f859e5c91851dc8d4995fe9ee",
+    "turtle_single_image_evaluator_sha256": "723220e61a19a1d5450a486d0a5a11745488e3df979c324a5bbcc52624b3507b",
+    "evssm_validation_evaluator_sha256": "006bcfb613a5f7dfa451044189205da22d3e89c5b3f4c8d0a7acb0dd88bb4519",
+    "turtle_streaming_evaluator_sha256": "9031fbf168e83a0164a3434aa560064cdb6ba3b1570b0fc14c6218fd87298569",
+    "turtle_backend_sha256": "a2dee19a1017d5450714cf4e9c729cd32974d2f5237a783534740f5cccf6d6dd",
+    "evssm_backend_sha256": "7638d98c8af8baca5d7f414ee2a13e9612d7c1c7b4dda8d6b497bdeb5a8f3b68",
+    "materializer_sha256": "2ab8e1779f6be0b8d0b6b8fd688f7e203cbecb7fdf6ed04a33944f3870bab2bd",
+    "materialization_auditor_sha256": "adee88eb7799e09cb292834141023762970e7aed314e2f827de1567c040e948c",
+    "mixed_trainer_test_sha256": "ac04aca257302b43232cc0f2d40af13970d188eecdf29c1e3560ab56ff8ed82d",
+    "turtle_single_image_evaluator_test_sha256": "1e6d6e20e01e6678a22d61569396a670c79acd26a130f75dbaa918f311347f85",
+    "evssm_evaluator_test_sha256": "17329125fa404d6d46066cdbb3ff934e27d3eeb224ac979d569e61afedcc280e",
+    "materializer_test_sha256": "602125bdd15a73aef7adc492bfd48e75a3f449787d2ee2cf5c0b61bb0ea53ff0",
+    "materialization_auditor_test_sha256": "4790d381670c2f5d1d3bb1f22c96d5b982eea99c801adbf125838482d228c222",
+    "torch_version": "2.3.1",
+    "cuda_version": "12.1",
+    "torchmetrics_version": "1.9.0",
+    "opencv_version": "4.8.1",
+    "alexnet_backbone_sha256": "7be5be791159472b1fbf3c69796f7cb30dca7ad8466c2df70058c37116cdee02",
+    "lpips_alex_linear_sha256": "df73285e35b22355a2df87cdb6b70b343713b667eddbda73e1977e0c860835c0"
+  },
+  "runtime": {
+    "physical_gpu": 1,
+    "visible_device": "CUDA_VISIBLE_DEVICES=1",
+    "script_device": "cuda:0",
+    "gpu_model": "NVIDIA_RTX_A6000_48GB",
+    "output_root": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_dpdd_png16_mixed_v4_validation_only",
+    "overwrite": false,
+    "large_artifacts_on_srv_only": true
+  },
+  "launch_gate": {
+    "authorized_after_contract_sha_is_frozen_and_independent_CPU_review_passes": true,
+    "output_root_must_be_absent": true,
+    "gpu0_forbidden": true,
+    "dpdd_test_and_replica_room2_remain_unopened": true
+  }
+}

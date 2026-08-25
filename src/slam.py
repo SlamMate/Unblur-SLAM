@@ -86,8 +86,14 @@ class SLAM:
 
     def load_pretrained(self, cfg):
         droid_pretrained = cfg['tracking']['pretrained']
+        # Checkpoints may have been serialized from cuda:0.  Restore directly
+        # onto the configured device so a run assigned to cuda:1 never stages
+        # weights on (and potentially OOMs) an unrelated busy GPU.
         state_dict = OrderedDict([
-            (k.replace('module.', ''), v) for (k, v) in torch.load(droid_pretrained).items()
+            (k.replace('module.', ''), v)
+            for (k, v) in torch.load(
+                droid_pretrained, map_location=self.device
+            ).items()
         ])
         state_dict['update.weight.2.weight'] = state_dict['update.weight.2.weight'][:2]
         state_dict['update.weight.2.bias'] = state_dict['update.weight.2.bias'][:2]
@@ -271,6 +277,7 @@ class SLAM:
             if not self.only_tracking and self.mapper is not None:
                 ply_path = f'{self.save_dir}/final_model.ply'
                 self.mapper.gaussians.save_ply(ply_path)
+                self.mapper.finalize_forced_commit_terminal(ply_path)
                 self.printer.print(f'Saved Gaussian model to {ply_path}', FontColor.EVAL)
 
             self.printer.print(f'Runtime stats saved to {stats_path}', FontColor.EVAL)
@@ -316,10 +323,40 @@ class SLAM:
         for p in processes:
             p.start()
 
-        for p in processes:
-            p.join()
+        try:
+            # A worker can fail while its peer is blocked on the pipe.  Polling
+            # exit codes lets us stop the peer and propagate the real failure
+            # instead of printing a false "finished" message from run.py.
+            while any(process.is_alive() for process in processes):
+                failed = [
+                    process
+                    for process in processes
+                    if process.exitcode not in (None, 0)
+                ]
+                if failed:
+                    for process in processes:
+                        if process.is_alive():
+                            process.terminate()
+                    for process in processes:
+                        process.join()
+                    details = ", ".join(
+                        f"{process.name}: exitcode={process.exitcode}"
+                        for process in failed
+                    )
+                    raise RuntimeError(f"Unblur-SLAM worker failed ({details})")
+                time.sleep(0.1)
 
-        self.printer.terminate()
+            for process in processes:
+                process.join()
+            failed = [process for process in processes if process.exitcode != 0]
+            if failed:
+                details = ", ".join(
+                    f"{process.name}: exitcode={process.exitcode}"
+                    for process in failed
+                )
+                raise RuntimeError(f"Unblur-SLAM worker failed ({details})")
+        finally:
+            self.printer.terminate()
 
 
 def gen_pose_matrix(R, T):

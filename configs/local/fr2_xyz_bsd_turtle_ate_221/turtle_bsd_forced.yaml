@@ -1,0 +1,17 @@
+# Unsafe diagnostic: force the official BSD t0 TURTLE output into tracking
+# even when its Laplacian sharpness is worse than the raw TUM observation.
+# This isolates the checkpoint's direct trajectory effect; it is not a
+# deployable arm and is excluded from the safe three-arm report.
+inherit_from: ./turtle_bsd.yaml
+
+paired_official_online_budget_221:
+  unsafe_forced_bsd_tracking_diagnostic: true
+  unsafe_not_deployable: true
+  safe_primary_report_member: false
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_bsd_turtle_ate_221_v3_forced_bsd_diagnostic/turtle_bsd_forced
+
+deblur:
+  stream_min_laplacian_gain: -1.0
+  stream_replace_sharp: true

@@ -1,0 +1,67 @@
+{
+  "schema": "unblur_slam.motion_only_resplat_protocol_config.v1",
+  "experiment_id": "fr2_xyz_turtle_motion_only_droid_kf_0_220_official_resplat_small8v_v2",
+  "tracking": {
+    "root": "/srv/szha0669/unblur-slam/selection_independent/fr2_xyz_turtle_motion_only_tracking_221_v2/tum_f2_motion221_v1",
+    "freeze_marker": "/srv/szha0669/unblur-slam/selection_independent/fr2_xyz_turtle_motion_only_tracking_221_v2/tum_f2_motion221_v1/FROZEN.json",
+    "expected_schema": "unblur_slam.frozen_motion_only_tracking.v1",
+    "pose_key": "traj_est_not_align",
+    "pose_source": "droid_traj_est_not_align"
+  },
+  "source": {
+    "frames_csv": "/srv/szha0669/unblur-slam/framecrafter_preprocess/fr2_xyz/estimated_frames.csv",
+    "frames_csv_sha256": "549f28a3c34d209c6d3741eae8b167268ff5dcd84ee24a572d68a8dcb66c7177",
+    "first": 0,
+    "last": 220,
+    "count": 221
+  },
+  "selection": {
+    "keyframe_provider": "droid_motion_filter_only",
+    "context_provider": "official_cvg_resplat_fps",
+    "num_context": 8,
+    "target_provider": "remaining",
+    "minimum_target_count": 1,
+    "clear_gt_membership_used": false,
+    "ground_truth_evaluation_deferred": true
+  },
+  "official_resplat": {
+    "origin": "https://github.com/cvg/resplat",
+    "repository": "/srv/szha0669/unblur-slam/external/resplat",
+    "commit": "cae7ddc4cdbd80e05e9f5fa00f5ea02c4e9056b1",
+    "infer_colmap_sha256": "1621d5c5fb560f5de1e02ac2a3a7ad5defa531d2b70a1969bfe4ab9ca6d21abb",
+    "model_preset": "dl3dv_8v_256x448_small",
+    "checkpoint": "/srv/szha0669/unblur-slam/pretrained/resplat-official/resplat-small-dl3dv-256x448-view8-548993fe.pth",
+    "checkpoint_sha256": "548993fede0d9536d2d914cbe51e0ebea0ad6f88c898c909e02127d59bb2be9a",
+    "num_refine": 4
+  },
+  "official_turtle": {
+    "origin": "https://github.com/Ascend-Research/Turtle",
+    "repository": "/srv/szha0669/unblur-slam/external/TURTLE",
+    "commit": "7094f4221b64ad0962b4f27ff1b76d788836e804",
+    "config": "/srv/szha0669/unblur-slam/external/TURTLE/options/Turtle_Deblur_Gopro.yml",
+    "config_sha256": "123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23",
+    "checkpoint": "/srv/szha0669/unblur-slam/pretrained/turtle/GoPro_Deblur.pth",
+    "checkpoint_sha256": "10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82",
+    "inference_precision": "fp16"
+  },
+  "execution": {
+    "physical_gpu": 1,
+    "cuda_visible_devices": "1",
+    "process_device": "cuda:0",
+    "resplat_python": "/srv/szha0669/unblur-slam/envs/resplat-official-py312-torch270-cu128/bin/python"
+  },
+  "outputs": {
+    "protocol_dir": "/srv/szha0669/unblur-slam/selection_independent/fr2_xyz_turtle_motion_only_resplat_protocol_221_v2",
+    "turtle_dir": "/srv/szha0669/unblur-slam/selection_independent/fr2_xyz_turtle_motion_only_turtle_stream_221_v2",
+    "scene_dir": "/srv/szha0669/unblur-slam/selection_independent/fr2_xyz_turtle_motion_only_resplat_scene_221_v2",
+    "resplat_dir": "/srv/szha0669/unblur-slam/selection_independent/fr2_xyz_turtle_motion_only_resplat_smoke_221_v2",
+    "audit_dir": "/srv/szha0669/unblur-slam/selection_independent/fr2_xyz_turtle_motion_only_resplat_audit_221_v2"
+  },
+  "excluded": {
+    "legacy_mapping_resplat": false,
+    "residual_replay": false,
+    "causal_evssm": false,
+    "clear_conditioned_42_frame_artifact_reuse": false,
+    "26k_comparison": false
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "unblur_slam.turtle_temporal_v2_motion_only_addendum.v1",
+  "status": "frozen_before_any_v2_validation_evaluation",
+  "created_date": "2026-08-22",
+  "created_phase": "seed17_training_in_progress_before_fixed_terminal_checkpoint_and_before_any_v2_validation_evaluation",
+  "reason": "The original contract's on-pass text referenced an existing TUM smoke whose keyframes were clear-protocol conditioned. This addendum narrows that permission before any v2 validation result is observed.",
+  "binds": {
+    "contract_path": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed/preregistered_contract.json",
+    "contract_sha256": "2ba40ff5fd2110cb88bf19b14563875325d6816305a8d846a0e0e9d42f0f9514"
+  },
+  "selection_policy": {
+    "tum_keyframe_selection": "motion_only_selection_independent",
+    "clear_gt_membership_used": false,
+    "gt_pose_or_depth_used_during_selection": false,
+    "legacy_clear_conditioned_smoke_permitted": false,
+    "open_gt_metrics_only_after_outputs_frozen": true
+  },
+  "on_pass": "freeze all TURTLE artifacts, then permit only a new motion-only selection-independent TUM smoke; the prior clear-conditioned TUM smoke remains forbidden for metric-bearing evidence",
+  "implementation_pin_overrides": {
+    "report_script_sha256": "32593944719b4aeacf4a9399111c1ca976a4241cdd377777ea7ef5461192142d",
+    "report_test_sha256": "b7336a874bf01d86a219e6cb183c7792e5500eca98e660f46b8ee222e1abde40"
+  }
+}

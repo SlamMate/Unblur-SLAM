@@ -159,6 +159,16 @@ class Camera(nn.Module):
         
     @staticmethod
     def init_from_dataset_motion(dataset, data, projection_matrix, deblur_fail):
+        if "estimated_pose_sequence" in data:
+            pose_sequence = data["estimated_pose_sequence"]
+        elif "gt_pose" in data:
+            # Backward compatibility for the legacy online mapper. New
+            # deferred-DROID cameras use the explicitly estimated key above.
+            pose_sequence = data["gt_pose"]
+        else:
+            raise KeyError(
+                "motion camera requires estimated_pose_sequence or gt_pose"
+            )
         
         return Camera(
             data["idx"],
@@ -177,7 +187,7 @@ class Camera(nn.Module):
             data["n_virtual_cams"],
             data["interpolation"],
             device=dataset.device,
-            realgt_pose=data["gt_pose"],
+            realgt_pose=pose_sequence,
             deblur_fail = deblur_fail,
         )
 
@@ -604,6 +614,5 @@ class Camera(nn.Module):
         )
         return R, t
     """
-
 
 

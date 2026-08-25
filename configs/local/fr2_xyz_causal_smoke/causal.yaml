@@ -1,0 +1,17 @@
+# Official Unblur-SLAM EVSSM followed by the content-bound causal adapter.
+# This arm contains no GoPro/TURTLE checkpoint or code path.
+inherit_from: ./replay.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_causal_smoke/causal
+
+deblur:
+  frontend: causal_evssm
+  causal_checkpoint: /srv/szha0669/unblur-slam/causal_video_runs/replica40_evssm_adapter_v2/causal_evssm.pt
+  causal_checkpoint_sha256: fd593194319d99accddd5e6d6deb7694f9c98063830c6bd5997d8c1fcc85c78d
+  causal_history: 5
+  stream_every_frame: true
+  stream_apply_to_tracking: true
+  stream_replace_sharp: false
+  stream_min_laplacian_gain: 0.02
+  stream_min_vs_evssm_gain: 0.0

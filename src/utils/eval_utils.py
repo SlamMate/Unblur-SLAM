@@ -28,6 +28,10 @@ from thirdparty.gaussian_splatting.utils.image_utils import psnr
 from thirdparty.gaussian_splatting.utils.loss_utils import ssim
 from thirdparty.gaussian_splatting.utils.system_utils import mkdir_p
 from src.utils.datasets import load_mono_depth
+from src.utils.eval_frames import (
+    available_clear_gt_source_indices,
+    clear_gt_metric_scope,
+)
 import pyiqa 
 import traceback
 from evaluate_3d_reconstruction import run_evaluation
@@ -52,53 +56,12 @@ SHARP_FRAME_INDICES = {
 }
 
 def get_sharp_frame_indices(mapper):
-    """
-    Get sharp frame indices based on mapper configuration for TUM dataset
-    """
-    # Check if this is a TUM dataset
+    """Return the paper-aligned clear-GT source indices for this run."""
     if not hasattr(mapper, 'config'):
         return None
-    dataset_type = mapper.config.get('dataset', '').lower()
-    # Get the scene name
-    scene = mapper.config.get('scene', '').lower()
-    # Check if it's a TUM RGB-D dataset
-    if dataset_type in ['tumrgbd', 'tumrgb']:
-        # Get the scene name
-        scene = mapper.config.get('scene', '').lower()
-        # Map scene name to sharp frame indices
-        if 'freiburg1_desk' in scene or 'fr1_desk' in scene:
-            return SHARP_FRAME_INDICES['TUM/fr1_desk']
-        elif 'freiburg2_xyz' in scene or 'fr2_xyz' in scene:
-            return SHARP_FRAME_INDICES['TUM/fr2_xyz']
-        elif 'freiburg3_office' in scene or 'fr3_office' in scene:
-            return SHARP_FRAME_INDICES['TUM/fr3_office']
-        else:
-            print(f"Warning: Unknown TUM scene '{scene}', evaluating all frames")
-            return None
-    # Check for deblur/exblur datasets with hold=X files
-    elif dataset_type in ['deblur_nerf_motion', 'deblur_nerf_defocus', 'exblurf_motion', 'real_camera_motion_blur', 'deblur_nerf_motion_whole', 'deblur_nerf_motion_no_deblur_no_refine']:
-        # Get the data path from config
-        data_path = mapper.config["data"]["input_folder"]
-        scene = mapper.config.get('scene', 'blurball')  # 可以在config中指定scene
-        data_path = os.path.join(data_path, scene)
-        print(data_path)
-        # Look for hold=X file in the dataset directory
-        hold_files = glob.glob(os.path.join(data_path, 'hold=*'))
-        if not hold_files:
-            print(f"No hold=X file found in {data_path}, evaluating all frames")
-            return None
-        # Extract the hold value from the filename
-        hold_file = hold_files[0]  # Take first if multiple exist
-        hold_value = int(os.path.basename(hold_file).split('=')[1])
-        # Get total number of frames
-        total_frames = len(mapper.cameras)
-        # Generate sharp frame indices (multiples of hold_value)
-        # Start from hold_value instead of 0 to match the naming convention (e.g., 007.jpg, 014.jpg)
-        sharp_indices = [i for i in range(total_frames) if i % hold_value == 0]
-        print(f"Found hold={hold_value} for dataset {dataset_type}")
-        print(f"Sharp frame indices (multiples of {hold_value}): {sharp_indices}")
-        return sharp_indices
-    return None
+    return available_clear_gt_source_indices(
+        mapper.config, getattr(mapper, "frame_reader", None)
+    )
 
 
 # ============ 添加的视频插值相关函数 ============
@@ -275,9 +238,22 @@ def eval_rendering(
     # Get sharp frame indices for TUM dataset (Deblur-SLAM)
     sharp_frame_indices = get_sharp_frame_indices(mapper)
     has_sharp_frames = sharp_frame_indices is not None
+    metric_scope = (
+        clear_gt_metric_scope(mapper.config)
+        if has_sharp_frames
+        else "all_eval_frames"
+    )
     if has_sharp_frames:
         dataset_type = mapper.config.get('dataset', '').lower()
-        print(f"{dataset_type} dataset detected. Evaluating {len(sharp_frame_indices)} sharp frames only for PSNR.")
+        print(
+            f"{dataset_type} dataset detected. Evaluating "
+            f"{len(sharp_frame_indices)} sharp frames for {metric_scope}."
+        )
+        if metric_scope == "clear_gt_prefix_smoke":
+            print(
+                "WARNING: clear_gt_prefix_smoke is a bounded functionality "
+                "check, not a complete paper metric."
+            )
         print(f"Sharp frame indices: {sharp_frame_indices}")
 
     # ==================== 新增: 模糊检测评估初始化 ====================
@@ -293,7 +269,10 @@ def eval_rendering(
     blur_eval_datasets = ['deblur_nerf_motion', 'deblur_nerf_defocus', 'exblurf_motion', 
                           'real_camera_motion_blur', 'deblur_nerf_motion_whole', 
                           'deblur_nerf_motion_no_deblur_no_refine']
-    evaluate_blur_detection = has_sharp_frames and dataset_type in blur_eval_datasets
+    # This run's paper metric scope is clear-GT only.  A blur-detector
+    # confusion matrix needs the complementary blurry labels and therefore
+    # must not be fabricated from this filtered evaluation pass.
+    evaluate_blur_detection = False
     
     if evaluate_blur_detection:
         print(f"\nBlur detection evaluation enabled for dataset: {dataset_type}")
@@ -306,6 +285,7 @@ def eval_rendering(
     ssim_sharp_only_array = []
     lpips_sharp_only_array = []
     psnr_mid_sharp_array, ssim_mid_sharp_array, lpips_mid_sharp_array = [], [], []
+    evaluated_clear_sources = set()
     # 初始化无参考指标数组
     qalign_input_array, qalign_render_array, qalign_ratio_array = [], [], []
     niqe_input_array, niqe_render_array, niqe_ratio_array = [], [], []
@@ -335,6 +315,17 @@ def eval_rendering(
             sdf_trunc=0.04,
             color_type=o3d.pipelines.integration.TSDFVolumeColorType.RGB8)
     for k, (kf_idx, video_idx) in enumerate(zip(keyframe_idxs, video_idxs)):
+        # FrameCrafter views are weak training observations, never evaluation
+        # targets.  Keeping this guard here prevents a sharp-looking generated
+        # frame from inflating PSNR/SSIM/LPIPS.
+        if hasattr(dataset, "is_eval_frame") and not dataset.is_eval_frame(kf_idx):
+            print(f"[eval_rendering] skipping synthetic/non-eval frame {kf_idx}")
+            continue
+        source_kf_idx = (
+            dataset.source_frame_index(kf_idx)
+            if hasattr(dataset, "source_frame_index")
+            else kf_idx
+        )
         # 定期清理GPU缓存
         if k % 10 == 0:
             torch.cuda.empty_cache()
@@ -346,10 +337,16 @@ def eval_rendering(
                 print(f"Warning: High GPU memory usage: {memory_reserved:.2f} GB")
         # Check if current frame is a sharp frame
         is_sharp_frame = False
-        if has_sharp_frames and kf_idx in sharp_frame_indices:
+        if has_sharp_frames and source_kf_idx in sharp_frame_indices:
             print("indice is", k)
             print("kf_idx is", kf_idx)
             is_sharp_frame = True
+        if has_sharp_frames and not is_sharp_frame:
+            print(
+                f"[eval_rendering] skipping non-clear-GT frame {kf_idx} "
+                f"(source {source_kf_idx})"
+            )
+            continue
 
         # ==================== 新增: 模糊检测评估 ====================
         if evaluate_blur_detection:
@@ -359,7 +356,7 @@ def eval_rendering(
             
             if predicted_blurry is not None:
                 # Ground truth: 如果kf_idx在sharp_frame_indices中，则是锐利帧(gt_blurry=False)
-                gt_is_sharp = kf_idx in sharp_frame_indices
+                gt_is_sharp = source_kf_idx in sharp_frame_indices
                 gt_blurry = not gt_is_sharp
                 
                 blur_detection_stats['total_frames'] += 1
@@ -390,7 +387,7 @@ def eval_rendering(
         frame = frames[video_idx]
         _, gt_image, gt_depth, _, gt_images = dataset[kf_idx]
         # retrieve mono depth
-        mono_depth = load_mono_depth(kf_idx, save_dir).to("cuda:0")
+        mono_depth = load_mono_depth(source_kf_idx, save_dir).to("cuda:0")
         
         # 对于 deblur_fail 帧 (负数 video_idx)，跳过需要 Droid-SLAM 深度的操作，但仍然渲染
         is_deblur_fail_frame = video_idx < 0
@@ -514,7 +511,8 @@ def eval_rendering(
         diff_depth_l1 = torch.abs(depth - gt_depth)
         diff_depth_l1_gt = diff_depth_l1 * depth_mask
         depth_l1_gt = diff_depth_l1_gt.sum() / depth_mask.sum()
-        depth_l1_array.append(depth_l1_gt)
+        if not has_sharp_frames or is_sharp_frame:
+            depth_l1_array.append(depth_l1_gt)
         psnr_score = psnr((image[mask]).unsqueeze(0), (gt_image[mask]).unsqueeze(0))
         ssim_score = ssim((image).unsqueeze(0), (gt_image).unsqueeze(0))
         lpips_score = cal_lpips((image).unsqueeze(0), (gt_image).unsqueeze(0))
@@ -531,16 +529,15 @@ def eval_rendering(
         if has_sharp_frames:
             if is_sharp_frame:
                 psnr_array.append(psnr_score.item())
+                evaluated_clear_sources.add(int(source_kf_idx))
                 psnr_sharp_only_array.append(psnr_score.item())
+                ssim_array.append(ssim_score.item())
+                lpips_array.append(lpips_score.item())
                 ssim_sharp_only_array.append(ssim_score.item())
                 lpips_sharp_only_array.append(lpips_score.item())
                 print(f"Frame {k} (kf_idx: {kf_idx}) is a sharp frame, PSNR: {psnr_score.item():.2f}")
             else:
-                psnr_array.append(psnr_score.item())
                 print(f"Frame {k} (kf_idx: {kf_idx}) is not a sharp frame, skipping PSNR evaluation")
-            # Always calculate SSIM and LPIPS for all frames
-            ssim_array.append(ssim_score.item())
-            lpips_array.append(lpips_score.item())
         else:
             psnr_array.append(psnr_score.item())
             ssim_array.append(ssim_score.item())
@@ -576,6 +573,20 @@ def eval_rendering(
             # use gt pose for debugging
             # w2c_o3d = torch.linalg.inv(pose).cpu().numpy() @ dataset.w2c_first_pose
             volume.integrate(rgbd, intrinsic, w2c_o3d)
+    if has_sharp_frames and evaluated_clear_sources != set(sharp_frame_indices):
+        missing = sorted(set(sharp_frame_indices) - evaluated_clear_sources)
+        extra = sorted(evaluated_clear_sources - set(sharp_frame_indices))
+        raise RuntimeError(
+            "rendering evaluation did not cover the complete configured "
+            "clear-GT scope; refusing an incomplete metric: "
+            f"missing={missing}, extra={extra}"
+        )
+    if has_sharp_frames and len(psnr_array) != len(evaluated_clear_sources):
+        raise RuntimeError(
+            "duplicate clear-GT source frames reached rendering evaluation; "
+            "refusing a reweighted metric"
+        )
+
     print("\n=== Rendering 3 overview perspectives ===")
     overview_dir = os.path.join(save_dir, iteration, "overview_renders")
     mkdir_p(overview_dir)
@@ -647,7 +658,17 @@ def eval_rendering(
                 print(f"3D Mesh evaluation: {result_3d}")
             except Exception as e:
                 traceback.print_exception(e)
+    if has_sharp_frames and not psnr_array:
+        raise RuntimeError(
+            "no paper clear-GT frame reached rendering evaluation; refusing "
+            "to write NaN/all-frame fallback metrics"
+        )
     output = dict()
+    output["metric_scope"] = metric_scope
+    output["num_evaluated_frames"] = len(psnr_array)
+    output["evaluated_source_indices"] = (
+        sorted(evaluated_clear_sources) if has_sharp_frames else None
+    )
     output["mean_psnr"] = float(np.mean(psnr_array))
     output["mean_ssim"] = float(np.mean(ssim_array))
     output["mean_lpips"] = float(np.mean(lpips_array))

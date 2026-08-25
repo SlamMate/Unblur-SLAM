@@ -1,0 +1,12 @@
+inherit_from: ./common.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_causal_smoke/replay
+
+mapping:
+  resplat:
+    enabled: true
+    online_enabled: true
+    online_replay_views: 2
+    # Equal total budget: 75 uniform iterations + 25 residual-replay tail.
+    extra_iters: 25

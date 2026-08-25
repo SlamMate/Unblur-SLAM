@@ -1,0 +1,10 @@
+inherit_from: ./common.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_causal_smoke/baseline
+
+mapping:
+  resplat:
+    enabled: false
+    online_enabled: false
+    extra_iters: 0

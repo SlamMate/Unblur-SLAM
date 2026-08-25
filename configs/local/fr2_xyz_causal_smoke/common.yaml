@@ -1,0 +1,88 @@
+# Shared contract for the bounded fr2_xyz causal-frontend smoke matrix.
+#
+# This is intentionally NOT the complete 42-frame TUM paper evaluation.  It
+# reads the contiguous source prefix 0..220 and reports the eleven published
+# clear-GT frames that fall inside that prefix.  The three arms share the same
+# observations and total optimization budget; they differ only in replay and
+# causal-frontend switches.
+inherit_from: ../../I2slam/freiburg2_xyz.yaml
+
+scene: freiburg2_xyz
+stride: 1
+max_frames: 221
+setup_seed: 43
+device: cuda:0
+warmup_mapper: true
+
+causal_smoke:
+  schema: unblur_slam.fr2_xyz_causal_smoke.v1
+  bounded_source_prefix: true
+  source_first: 0
+  source_last: 220
+  full_paper_metric: false
+  metric_scope: clear_gt_protocol_prefix_only
+  expected_clear_gt_source_indices: [0, 9, 15, 49, 58, 72, 89, 109, 125, 166, 220]
+
+evaluation:
+  clear_gt_scope: prefix_smoke
+  # This is an assertion against the authoritative available-protocol helper,
+  # not a replacement evaluation list.
+  expected_clear_gt_source_indices: [0, 9, 15, 49, 58, 72, 89, 109, 125, 166, 220]
+
+# TUM input is 640x480.  Tracking, mapping and evaluation retain the
+# paper-aligned 512x384 tensors used by the existing Unblur-SLAM configs.
+cam:
+  H_out: 384
+  W_out: 512
+
+framecrafter:
+  enabled: false
+  auto_prepare: false
+  manifest: ""
+
+# Official Unblur-SLAM motion EVSSM; never substitute GoPro/TURTLE weights.
+evssm_checkpoint: /srv/szha0669/unblur-slam/pretrained/net_g_latest_batch_8_no_NYU.pth
+evssm_checkpoint_sha256: 4c18cd0c783b88e0c4efb8afb60642afed6bdc682cb076bcdd8c358e3c565b41
+deblur:
+  frontend: evssm
+
+data:
+  dataset_root: /srv/szha0669/unblur-slam/datasets/TUM_RGBD
+  # Every runnable child overrides this sentinel.
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_causal_smoke/_common_do_not_run
+
+tracking:
+  pretrained: /srv/szha0669/unblur-slam/pretrained/droid.pth
+  pretrained_sha256: 46476ef64cde45a97504910d6f3de2eef7b398ec1c6e4e668815c29076024526
+  backend:
+    final_ba: true
+
+mono_prior:
+  depth_pretrained: /srv/szha0669/unblur-slam/pretrained/omnidata_dpt_depth_v2.ckpt
+  depth_pretrained_sha256: a0fab23fee64aa9e4bbe0b520b18b196ea7594a7f719c1d8c10cf11dcb6e4a1e
+
+mapping:
+  online_plotting: false
+  hydrate_missing_droid_keyframes: true
+  eval_before_final_ba: false
+  final_refine_iters: 100
+  Training:
+    init_itr_num: 100
+    mapping_itr_num: 10
+    tracking_itr_num: 10
+  resplat:
+    backend: residual_replay
+    budget_mode: replace_tail
+    enabled: false
+    online_enabled: false
+    extra_iters: 0
+    online_replay_views: 2
+    checkpoint_interval: 25
+    checkpoint_steps: [25, 50, 100]
+    checkpoint_clear_gt_psnr: true
+    save_full_state: false
+    log_csv: true
+
+submaps:
+  enabled: false
+  loop_backend: none

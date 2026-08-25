@@ -1,0 +1,19 @@
+# Fresh three-arm TUM fr2_xyz prefix run testing whether the official BSD
+# TURTLE checkpoint improves trajectory accuracy inside Unblur-SLAM.
+inherit_from: ../fr2_xyz_official_online_budget_221/common.yaml
+
+paired_official_online_budget_221:
+  schema: unblur_slam.fr2_xyz_bsd_turtle_ate_221.v2
+  comparison: evssm_vs_turtle_gopro_t1_vs_turtle_bsd_t0
+  bounded_source_prefix: true
+  source_first: 0
+  source_last: 220
+  source_count: 221
+  official_online_optimization_budget: true
+  complete_three_sequence_paper_benchmark: false
+  paper_26k_offline_refinement: false
+  expected_clear_gt_source_indices: [0, 9, 15, 49, 58, 72, 89, 109, 125, 166, 220]
+  rejected_streaming_candidate_fallback: append_raw_then_notify_mapper_with_new_index
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_bsd_turtle_ate_221_v2/_common_do_not_run

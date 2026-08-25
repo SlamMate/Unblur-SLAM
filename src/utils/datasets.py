@@ -70,7 +70,25 @@ def load_mono_depth(idx,path):
 
 
 def get_dataset(cfg, device='cuda:0'):
-    return dataset_dict[cfg['dataset']](cfg, device=device)
+    dataset = dataset_dict[cfg['dataset']](cfg, device=device)
+    framecrafter_cfg = cfg.get("framecrafter", {}) or {}
+    manifest = framecrafter_cfg.get("manifest", "")
+    if framecrafter_cfg.get("enabled", False):
+        if not manifest:
+            raise ValueError(
+                "framecrafter.enabled=true but no manifest was prepared; "
+                "run.py must resolve auto_prepare before constructing the dataset"
+            )
+        if not os.path.isfile(os.path.expanduser(str(manifest))):
+            raise FileNotFoundError(f"FrameCrafter manifest does not exist: {manifest}")
+        from src.utils.augmented_dataset import apply_framecrafter_manifest
+
+        dataset = apply_framecrafter_manifest(
+            dataset,
+            manifest,
+            expected_signature=framecrafter_cfg.get("preprocess_signature"),
+        )
+    return dataset
 
 
 class BaseDataset(Dataset):
@@ -143,10 +161,42 @@ class BaseDataset(Dataset):
     def __len__(self):
         return self.n_img
 
+    def frame_info(self, index):
+        metadata = getattr(self, "frame_metadata", None)
+        if metadata is None:
+            return {
+                "augmented_index": int(index),
+                "source_index": int(index),
+                "synthetic": False,
+                "eval": True,
+                "confidence": 1.0,
+            }
+        return metadata[int(index)]
+
+    def is_synthetic_frame(self, index):
+        return bool(self.frame_info(index).get("synthetic", False))
+
+    def is_eval_frame(self, index):
+        return bool(self.frame_info(index).get("eval", True))
+
+    def source_frame_index(self, index):
+        return int(self.frame_info(index).get("source_index", index))
+
+    def frame_confidence(self, index):
+        return float(self.frame_info(index).get("confidence", 1.0))
+
     def depthloader(self, index, depth_paths, depth_scale):
         if depth_paths is None:
             return None
         depth_path = depth_paths[index]
+        if depth_path.lower().endswith('.npy'):
+            # FrameCrafter's bilateral z-buffer gate writes metric float depth
+            # directly; unlike PNG sensor depth it must not be divided by the
+            # dataset's integer depth scale.
+            depth_data = np.load(depth_path).astype(np.float32)
+            if depth_data.ndim == 3:
+                depth_data = depth_data[..., 0]
+            return depth_data
         if '.png' in depth_path:
             depth_data = cv2.imread(depth_path, cv2.IMREAD_UNCHANGED)
         elif '.exr' in depth_path:
@@ -353,6 +403,8 @@ class Replica(BaseDataset):
         self.color_paths = self.color_paths[:max_frames][::stride]
         self.depth_paths = self.depth_paths[:max_frames][::stride]
         self.poses = self.poses[:max_frames][::stride]
+        # Replica uses the observed RGB as the default rendering reference.
+        self.gt_paths = self.color_paths.copy()
 
         self.w2c_first_pose = np.linalg.inv(self.poses[0])
 
@@ -500,8 +552,12 @@ class TUM_RGBD(BaseDataset):
     def __init__(self, cfg, device='cuda:0'
                  ):
         super(TUM_RGBD, self).__init__(cfg, device)
-        self.color_paths, self.depth_paths, self.poses = self.loadtum(
-            self.input_folder, frame_rate=32)
+        (
+            self.color_paths,
+            self.depth_paths,
+            self.poses,
+            self.image_timestamps,
+        ) = self.loadtum(self.input_folder, frame_rate=32)
         stride = cfg['stride']
         max_frames = cfg['max_frames']
         if max_frames < 0:
@@ -510,6 +566,11 @@ class TUM_RGBD(BaseDataset):
         self.color_paths = self.color_paths[:max_frames][::stride]
         self.depth_paths = self.depth_paths[:max_frames][::stride]
         self.poses = self.poses[:max_frames][::stride]
+        self.image_timestamps = self.image_timestamps[:max_frames][::stride]
+        # TUM has no separate sharp-reference directory: its RGB observation is
+        # the clear-GT target only at the paper's annotated evaluation indices.
+        # BaseDataset still requires a one-to-one gt_paths table for loading.
+        self.gt_paths = self.color_paths.copy()
 
         self.w2c_first_pose = np.linalg.inv(self.poses[0])
 
@@ -568,12 +629,13 @@ class TUM_RGBD(BaseDataset):
             if t1 - t0 > 1.0 / frame_rate:
                 indicies += [i]
 
-        images, poses, depths, intrinsics = [], [], [], []
+        images, poses, depths, timestamps = [], [], [], []
         inv_pose = None
         for ix in indicies:
             (i, j, k) = associations[ix]
             images += [os.path.join(datapath, image_data[i, 1])]
             depths += [os.path.join(datapath, depth_data[j, 1])]
+            timestamps += [float(tstamp_image[i])]
             # timestamp tx ty tz qx qy qz qw
             c2w = self.pose_matrix_from_quaternion(pose_vecs[k])
             if inv_pose is None:
@@ -586,7 +648,7 @@ class TUM_RGBD(BaseDataset):
             # c2w[:3, 2] *= -1
             poses += [c2w]
 
-        return images, depths, poses
+        return images, depths, poses, np.asarray(timestamps, dtype=np.float64)
 
     def pose_matrix_from_quaternion(self, pvec):
         """ convert 4x4 pose matrix to (t, q) """
@@ -650,8 +712,12 @@ class TUM_RGB(BaseDataset):
     def __init__(self, cfg, device='cuda:0', clear_init=False):
         super(TUM_RGB, self).__init__(cfg, device)
         self.clear_init = clear_init
-        self.color_paths, self.depth_paths, self.poses = self.loadtum(
-            self.input_folder, frame_rate=32)
+        (
+            self.color_paths,
+            self.depth_paths,
+            self.poses,
+            self.image_timestamps,
+        ) = self.loadtum(self.input_folder, frame_rate=32)
         self.n_virtual_cams = cfg['n_virtual_cams']
         self.config = cfg
         
@@ -664,6 +730,7 @@ class TUM_RGB(BaseDataset):
         self.depth_paths = self.depth_paths[:max_frames][::stride]
         self.is_depth = True
         self.poses = self.poses[:max_frames][::stride]
+        self.image_timestamps = self.image_timestamps[:max_frames][::stride]
 
         self.w2c_first_pose = np.linalg.inv(self.poses[0][0])
 
@@ -727,7 +794,7 @@ class TUM_RGB(BaseDataset):
             if t1 - t0 > 1.0 / frame_rate:
                 indicies.append(i)
 
-        images, poses, depths, intrinsics = [], [], [], []
+        images, poses, depths, timestamps = [], [], [], []
         inv_pose = None
         for ix in indicies:
             if tstamp_pose is None:
@@ -739,6 +806,7 @@ class TUM_RGB(BaseDataset):
             depth_path = os.path.join(datapath, depth_data[j, 1])
             images.append(image_path)
             depths.append(depth_path)
+            timestamps.append(float(tstamp_image[i]))
             
             num_poses = len(pose_vecs)
 
@@ -759,7 +827,7 @@ class TUM_RGB(BaseDataset):
         # Convert list of poses to a NumPy array
         poses = np.array(poses)
         print(f"Loaded {len(images)} images and {len(poses)} poses.")
-        return images, depths, poses
+        return images, depths, poses, np.asarray(timestamps, dtype=np.float64)
 
     def pose_matrix_from_quaternion(self, pvec):
         """Convert a pose vector (translation + quaternion) to a 4x4 pose matrix."""
@@ -1389,4 +1457,8 @@ dataset_dict = {
     "deblur_nerf_motion_whole": Deblur_nerf,
     "deblur_nerf_defocus": Deblur_nerf,
     "exblurf_motion": Deblur_nerf,
+    # Ev-DeblurNeRF CDAVIS shares the published LLFF pose/image layout but is
+    # evaluated against its motor-encoder trajectory, not Deblur-NeRF's
+    # hold=X novel-view RGB protocol.
+    "evdeblurnerf_cdavis": Deblur_nerf,
 }

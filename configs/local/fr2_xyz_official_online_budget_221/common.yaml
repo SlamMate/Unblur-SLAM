@@ -1,0 +1,79 @@
+# Direct paired EVSSM/TURTLE experiment on the bounded fr2_xyz prefix.
+#
+# This uses the published Unblur-SLAM *online* optimization budgets, but only
+# source frames 0..220 and 100 ordinary final-refinement iterations.  It is
+# therefore neither the complete three-sequence TUM paper benchmark nor the
+# paper's 26K offline-refinement protocol.
+inherit_from: ../../I2slam/freiburg2_xyz.yaml
+
+scene: freiburg2_xyz
+stride: 1
+max_frames: 221
+setup_seed: 43
+device: cuda:0
+warmup_mapper: true
+
+paired_official_online_budget_221:
+  schema: unblur_slam.fr2_xyz_paired_official_online_budget_221.v1
+  comparison: evssm_baseline_vs_official_turtle_gopro_fp16
+  bounded_source_prefix: true
+  source_first: 0
+  source_last: 220
+  source_count: 221
+  official_online_optimization_budget: true
+  complete_three_sequence_paper_benchmark: false
+  paper_26k_offline_refinement: false
+  expected_clear_gt_source_indices: [0, 9, 15, 49, 58, 72, 89, 109, 125, 166, 220]
+
+evaluation:
+  clear_gt_scope: prefix_smoke
+  expected_clear_gt_source_indices: [0, 9, 15, 49, 58, 72, 89, 109, 125, 166, 220]
+
+cam:
+  H_out: 384
+  W_out: 512
+
+framecrafter:
+  enabled: false
+  auto_prepare: false
+  manifest: ""
+
+data:
+  dataset_root: /srv/szha0669/unblur-slam/datasets/TUM_RGBD
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_official_online_budget_221/_common_do_not_run
+
+tracking:
+  pretrained: /srv/szha0669/unblur-slam/pretrained/droid.pth
+  pretrained_sha256: 46476ef64cde45a97504910d6f3de2eef7b398ec1c6e4e668815c29076024526
+  backend:
+    final_ba: true
+
+mono_prior:
+  predict_online: true
+  depth_pretrained: /srv/szha0669/unblur-slam/pretrained/omnidata_dpt_depth_v2.ckpt
+  depth_pretrained_sha256: a0fab23fee64aa9e4bbe0b520b18b196ea7594a7f719c1d8c10cf11dcb6e4a1e
+
+mapping:
+  online_plotting: false
+  eval_before_final_ba: false
+  # Apply the same fail-closed complete-prefix camera policy to both arms.
+  hydrate_missing_droid_keyframes: true
+  final_refine_iters: 100
+  Training:
+    init_itr_num: 1050
+    mapping_itr_num: 100
+    tracking_itr_num: 100
+  # This historical residual-priority sampler is not official ReSplat and is
+  # disabled in both arms.
+  resplat:
+    enabled: false
+    online_enabled: false
+    extra_iters: 0
+    log_csv: false
+    save_full_state: false
+
+submaps:
+  enabled: false
+  loop_backend: none
+  official_resplat_sidecar:
+    enabled: false

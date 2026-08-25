@@ -1,0 +1,169 @@
+{
+  "schema": "unblur_slam.bsd_3ms24ms_acquisition_protocol.v1",
+  "status": "frozen",
+  "frozen_at_utc": "2026-08-22T19:44:30Z",
+  "dataset": {
+    "name": "Beam-Splitter Deblurring Dataset",
+    "short_name": "BSD",
+    "configuration": "3ms24ms",
+    "sharp_exposure_ms": 3,
+    "blurry_exposure_ms": 24,
+    "capture_frequency_fps": 15,
+    "resolution_width": 640,
+    "resolution_height": 480
+  },
+  "official_source": {
+    "repository_url": "https://github.com/zzh-tech/ESTRNN",
+    "repository_commit": "c7e7a49b0d9f53df320fe58e1f1861206666aa54",
+    "readme_url": "https://raw.githubusercontent.com/zzh-tech/ESTRNN/c7e7a49b0d9f53df320fe58e1f1861206666aa54/README.md",
+    "google_drive_folder_id": "1LKLCE_RqPF5chqWgmh3pj7cg-t9KM2Hd",
+    "google_drive_file_id": "1g3nn7lcVI_dJTkcOHtTN32K_oXTAdvcV",
+    "download_url": "https://drive.usercontent.google.com/download?id=1g3nn7lcVI_dJTkcOHtTN32K_oXTAdvcV&export=download&confirm=t",
+    "filename": "BSD_3ms24ms.zip",
+    "content_length_bytes": 8573144786,
+    "content_type": "application/octet-stream",
+    "last_modified_http": "Sat, 24 Jun 2023 23:35:44 GMT"
+  },
+  "official_turtle_checkpoint": {
+    "repository_url": "https://github.com/Ascend-Research/Turtle",
+    "repository_commit": "7094f4221b64ad0962b4f27ff1b76d788836e804",
+    "google_drive_folder_id": "1Mur4IboaNgEW5qyynTIHq8CSAGtyykrA",
+    "google_drive_file_id": "14aqOhHNE2eOei0RqPUAXEgIcxdaslzh0",
+    "download_url": "https://drive.usercontent.google.com/download?id=14aqOhHNE2eOei0RqPUAXEgIcxdaslzh0&export=download&confirm=t",
+    "filename": "BSD_Deblur.pth",
+    "content_length_bytes": 234739171,
+    "sha256": "183d5e344488382a39c32aad86559e6fd568954134ddfee8793f5851a2cdf809",
+    "quarantine_path": "/srv/szha0669/real_video_data/bsd_3ms24ms_official_quarantine/BSD_Deblur.pth",
+    "observed_mode_octal": "0444",
+    "role": "official TURTLE BSD deblurring baseline/initialization; it does not alter the dataset split policy",
+    "model_type": "t0",
+    "architecture_implementation": "basicsr/models/archs/turtle_arch.py",
+    "state_dict_tensor_keys": 621,
+    "parameters": 58620800,
+    "incompatible_backend_warning": "Do not bind this checkpoint to the current GoPro t1 backend, which has a different 633-key/59079548-parameter state contract.",
+    "weight_license": "not separately stated on the official trained-model download page"
+  },
+  "remote_zip_identity": {
+    "format": "ZIP64",
+    "entries_total": 45010,
+    "central_directory_offset": 8567191937,
+    "central_directory_bytes": 5952751,
+    "central_directory_sha256": "182a20d28dced5b3bcea445ec069afa091fd2668d7659fc14e7651a0f1455738",
+    "all_entry_index_sha256": "1f98dde2cc52bfe1313f4183f11a04058b68744890c12a2aadf45368ba986c55",
+    "zip64_eocd": {
+      "offset": 8573144688,
+      "bytes": 56,
+      "sha256": "33a85b38e1a8bafa2a133efa3e709025e256f5222348e9744a010780d84220cc"
+    },
+    "zip64_locator": {
+      "offset": 8573144744,
+      "bytes": 20,
+      "sha256": "f9e8b747e71d302b7a775d36d4f445b754e6f545cabae4aeca03c68fa8a792be"
+    },
+    "eocd": {
+      "offset": 8573144764,
+      "bytes": 22,
+      "sha256": "c459bbd9cdcbfd425a59a075a41ebcc76c2fbb5cdeebc7f1cc359b3dd450669b"
+    },
+    "payload_root": "BSD_3ms24ms/",
+    "payload_tree_entries": 22505,
+    "macos_metadata_root": "__MACOSX/",
+    "macos_metadata_entries": 22505,
+    "real_png_members": 22000,
+    "raw_members": 0,
+    "image_contract": {
+      "format": "PNG",
+      "width": 640,
+      "height": 480,
+      "bit_depth": 8,
+      "color_type": 2,
+      "color_model": "RGB",
+      "interlace_method": 0,
+      "materialization_audit_rule": "Every authorized train/valid member must pass ZIP CRC and PNG IHDR validation; this contract has not been evaluated on test member payloads."
+    },
+    "splits": {
+      "train": {
+        "sequences": 60,
+        "frames_per_sequence": 100,
+        "pairs": 6000,
+        "png_members": 12000,
+        "compressed_png_bytes": 4653709296,
+        "uncompressed_png_bytes": 4652650783,
+        "png_index_sha256": "fe366c136299a1b682c70881789770c2a76a4ea49f7f91535667f3e03dc2132d"
+      },
+      "valid": {
+        "sequences": 20,
+        "frames_per_sequence": 100,
+        "pairs": 2000,
+        "png_members": 4000,
+        "compressed_png_bytes": 1550905034,
+        "uncompressed_png_bytes": 1550567865,
+        "png_index_sha256": "8ed9bc17a5d17937fa747a3ddc2ef858e9bf6811734b60be18bcc04116f3ff7a"
+      },
+      "test": {
+        "sequences": 20,
+        "frames_per_sequence": 150,
+        "pairs": 3000,
+        "png_members": 6000,
+        "compressed_png_bytes": 2353859451,
+        "uncompressed_png_bytes": 2353434828,
+        "png_index_sha256": "9aa6b287cecd6ceca326d63cda89b58ccb086950580184f7bcca9a900784e2b9"
+      }
+    }
+  },
+  "split_policy": {
+    "authorized_for_materialization": [
+      "train",
+      "valid"
+    ],
+    "sealed_split": "test",
+    "test_pixel_exposure_definition": "Opening, decompressing, hashing, decoding, copying, displaying, or supplying any test member payload to a model or evaluator constitutes test pixel exposure. HEAD requests, ZIP central-directory metadata reads, opaque whole-archive transfer, and an opaque whole-archive SHA-256 do not constitute semantic test pixel exposure.",
+    "allowed_before_evaluation_protocol_freeze": [
+      "HTTP HEAD of the pinned object",
+      "HTTP Range reads limited to the pinned ZIP central directory and ZIP trailer",
+      "opaque byte-for-byte transfer of the complete archive into quarantine",
+      "whole-archive byte count and SHA-256 for an append-only acquisition receipt",
+      "materialization and audit of train and valid members only"
+    ],
+    "forbidden_before_evaluation_protocol_freeze": [
+      "open or decompress any test member payload",
+      "hash any individual test member payload",
+      "decode, inspect, display, copy, or evaluate any test image",
+      "extract the complete archive",
+      "make the quarantined archive generally readable"
+    ]
+  },
+  "storage_policy": {
+    "required_filesystem_root": "/srv/szha0669",
+    "default_quarantine_directory": "/srv/szha0669/unblur-slam/quarantine/bsd_3ms24ms",
+    "default_materialized_directory": "/srv/szha0669/unblur-slam/bsd_3ms24ms",
+    "minimum_free_bytes_before_new_download": 34359738368,
+    "archive_mode_octal_after_acquisition": "0400",
+    "quarantine_directory_mode_octal": "0700",
+    "overwrite_allowed": false
+  },
+  "archive_content_sha256": {
+    "state_at_protocol_freeze": "unobserved",
+    "reason": "The official publisher does not provide a checksum and the object has not yet been acquired.",
+    "binding_rule": "The first complete acquisition records SHA-256 in an append-only receipt. The frozen source identity, byte count, and remote ZIP metadata identity must already pass before transfer; the protocol file itself is never mutated."
+  },
+  "license_audit": {
+    "repository_code_license": "MIT",
+    "dataset_license": "not explicitly stated by the official README, paper, or download page",
+    "redistribution_status": "not authorized by this protocol",
+    "required_publication_action": "Cite the BSD papers and obtain or document dataset-use/redistribution permission before redistributing images or an archive."
+  },
+  "paper_identity": {
+    "title": "Real-world Video Deblurring: A Benchmark Dataset and An Efficient Recurrent Neural Network",
+    "arxiv": "2106.16028",
+    "reported_split_counts": {
+      "train_sequences": 60,
+      "train_frames": 6000,
+      "validation_sequences": 20,
+      "validation_frames": 2000,
+      "test_sequences": 20,
+      "test_frames": 3000,
+      "pairs_total": 11000
+    }
+  }
+}

@@ -16,60 +16,188 @@
 import numpy as np
 from lietorch import SE3
 from src.utils.Printer import FontColor
-import torch
-from thirdparty.monogs.utils.rotation_conv import quaternion_to_matrix, matrix_to_quaternion
-from thirdparty.monogs.utils.pose_utils import slerp
+from scipy.spatial.transform import Rotation, Slerp
+
+
+def _align_sim3_with_collinear_fallback(traj_est, traj_ref):
+    """Align trajectories, allowing a non-constant rank-1 reference path.
+
+    EVO deliberately rejects rank-1 covariance because the rotation about the
+    reference line is not identifiable.  Motorized linear-rail datasets such
+    as Ev-DeblurNeRF CDAVIS are nevertheless valid translation-ATE datasets:
+    that free rotation does not change the least-squares positional residual.
+    We use the same Umeyama equations/SVD and permit exactly rank 1, while
+    retaining EVO's failure for a constant reference or estimate.
+    """
+
+    try:
+        return traj_est.align(traj_ref, correct_scale=True)
+    except Exception as error:
+        from evo.core.geometry import GeometryException
+
+        if not isinstance(error, GeometryException) or "Degenerate covariance rank" not in str(error):
+            raise
+        x = np.asarray(traj_est.positions_xyz, dtype=np.float64).T
+        y = np.asarray(traj_ref.positions_xyz, dtype=np.float64).T
+        if x.shape != y.shape or x.shape[0] != 3 or x.shape[1] < 3:
+            raise
+        mean_x = x.mean(axis=1)
+        mean_y = y.mean(axis=1)
+        x_centered = x - mean_x[:, None]
+        y_centered = y - mean_y[:, None]
+        reference_rank = int(np.linalg.matrix_rank(y_centered))
+        estimate_rank = int(np.linalg.matrix_rank(x_centered))
+        if reference_rank != 1 or estimate_rank < 1:
+            raise
+        sigma_x = float(np.linalg.norm(x_centered) ** 2 / x.shape[1])
+        if not np.isfinite(sigma_x) or sigma_x <= np.finfo(np.float64).eps:
+            raise
+        covariance = y_centered @ x_centered.T / x.shape[1]
+        u, singular, v = np.linalg.svd(covariance)
+        if int(np.count_nonzero(singular > np.finfo(singular.dtype).eps)) < 1:
+            raise
+        sign = np.eye(3)
+        if np.linalg.det(u) * np.linalg.det(v) < 0.0:
+            sign[-1, -1] = -1.0
+        rotation = u @ sign @ v
+        scale = float(np.trace(np.diag(singular) @ sign) / sigma_x)
+        if not np.isfinite(scale) or scale <= 0.0:
+            raise
+        translation = mean_y - scale * rotation @ mean_x
+        from evo.core import lie_algebra as lie
+
+        traj_est.scale(scale)
+        traj_est.transform(lie.se3(rotation, translation))
+        return rotation, translation, scale
+
+
+def _frame_is_evaluation_target(stream, dataset_index):
+    """Return whether a dataset frame may contribute a reference trajectory.
+
+    FrameCrafter inserts carry estimated poses used to generate their images.
+    Those poses are training metadata, not ground truth.  The augmented dataset
+    marks them ``eval=false``; checking that bit before touching ``stream.poses``
+    prevents the estimate from leaking back into ATE as its own reference.
+    """
+
+    dataset_index = int(dataset_index)
+    metadata = getattr(stream, "frame_metadata", None)
+    if metadata is not None:
+        return bool(metadata[dataset_index].get("eval", True))
+    if hasattr(stream, "is_eval_frame"):
+        return bool(stream.is_eval_frame(dataset_index))
+    return True
+
+
+def _dataset_index(value, stream_length):
+    numeric = float(value)
+    if not np.isfinite(numeric):
+        raise ValueError(f"trajectory timestamp must be a dataset index, got {value!r}")
+    index = int(round(numeric))
+    if not np.isclose(numeric, index, atol=1.0e-5):
+        raise ValueError(f"trajectory timestamp must be a dataset index, got {value!r}")
+    if not 0 <= index < int(stream_length):
+        raise IndexError(
+            f"trajectory dataset index {index} outside stream of {stream_length} frames"
+        )
+    return index
+
+
+def _midpoint_reference_pose(gt_pose):
+    """Convert a dataset pose/control-knot array to one C2W reference pose."""
+
+    gt_pose = np.asarray(gt_pose)
+    if gt_pose.shape == (4, 4):
+        return gt_pose.astype(np.float64, copy=True)
+    if gt_pose.ndim != 3 or gt_pose.shape[1:] != (4, 4) or len(gt_pose) == 0:
+        raise ValueError(f"reference pose must be 4x4 or Kx4x4, got {gt_pose.shape}")
+    if len(gt_pose) == 1:
+        return gt_pose[0].astype(np.float64, copy=True)
+
+    first = np.asarray(gt_pose[0], dtype=np.float64)
+    last = np.asarray(gt_pose[-1], dtype=np.float64)
+    translation = 0.5 * (first[:3, 3] + last[:3, 3])
+    key_rotations = Rotation.from_matrix(
+        np.stack((first[:3, :3], last[:3, :3]))
+    )
+    rotation = Slerp([0.0, 1.0], key_rotations)([0.5]).as_matrix()[0]
+
+    result = np.eye(4, dtype=np.float64)
+    result[:3, :3] = rotation
+    result[:3, 3] = translation
+    return result
+
+
+def build_evaluation_trajectory_pairs(estimates, dataset_indices, stream, printer=None):
+    """Build strictly paired estimate/reference arrays for ATE.
+
+    ``estimates[position]`` is paired only with the dataset frame named by
+    ``dataset_indices[position]``.  Frames whose augmentation metadata says
+    ``eval=false`` are removed from both arrays at the same position.
+    """
+
+    estimates = np.asarray(estimates)
+    dataset_indices = np.asarray(dataset_indices).reshape(-1)
+    if estimates.ndim != 3 or estimates.shape[1:] != (4, 4):
+        raise ValueError(f"estimated trajectory must be Nx4x4, got {estimates.shape}")
+    if len(estimates) != len(dataset_indices):
+        raise ValueError(
+            "estimated trajectory/timestamp length mismatch: "
+            f"{len(estimates)} != {len(dataset_indices)}"
+        )
+
+    stream_length = len(stream.poses)
+    paired_estimates = []
+    paired_references = []
+    paired_timestamps = []
+    kept_dataset_indices = []
+    seen_dataset_indices = set()
+    for position, value in enumerate(dataset_indices):
+        index = _dataset_index(value, stream_length)
+        if index in seen_dataset_indices:
+            raise ValueError(f"duplicate trajectory dataset index {index}")
+        seen_dataset_indices.add(index)
+        if not _frame_is_evaluation_target(stream, index):
+            continue
+        gt_pose = np.asarray(stream.poses[index])
+        if not np.isfinite(gt_pose).all():
+            if printer is not None:
+                printer.print(
+                    f"Nan or Inf found in gt poses, skipping dataset frame {index}!",
+                    FontColor.INFO,
+                )
+            continue
+        estimate = np.asarray(estimates[position], dtype=np.float64)
+        if not np.isfinite(estimate).all():
+            if printer is not None:
+                printer.print(
+                    f"Nan or Inf found in estimated pose, skipping dataset frame {index}!",
+                    FontColor.INFO,
+                )
+            continue
+        paired_estimates.append(estimate)
+        paired_references.append(_midpoint_reference_pose(gt_pose))
+        paired_timestamps.append(float(value))
+        kept_dataset_indices.append(index)
+
+    if not paired_estimates:
+        raise ValueError("no evaluation frames remain after filtering eval=false metadata")
+    return (
+        np.asarray(paired_estimates),
+        np.asarray(paired_references),
+        np.asarray(paired_timestamps, dtype=np.float64),
+        np.asarray(kept_dataset_indices, dtype=np.int64),
+    )
+
 
 def align_kf_traj(npz_path,stream,return_full_est_traj=False,printer=None):
     offline_video = dict(np.load(npz_path))
-    traj_ref = []
-    traj_est = []
     video_traj = offline_video['poses']
     # 这个timestamp是图片的index
     video_timestamps = offline_video['timestamps']
-    timestamps = []
-
-    u_index = torch.tensor([0.5])
-    """
-    if stream.only_tracking:
-        for i in range(video_timestamps.shape[0]):
-            timestamp = int(video_timestamps[i])
-            val = stream.poses[timestamp].sum()
-            if np.isnan(val) or np.isinf(val):
-                printer.print(f'Nan or Inf found in gt poses, skipping {i}th pose!',FontColor.INFO)
-                continue
-            traj_est.append(video_traj[i])
-            traj_ref.append(stream.poses[timestamp])
-            timestamps.append(video_timestamps[i])
-    else:
-    """
-    for i in range(video_timestamps.shape[0]):
-        timestamp = int(video_timestamps[i])
-        print(timestamp)
-        val = stream.poses[timestamp].sum()
-        if np.isnan(val) or np.isinf(val):
-            printer.print(f'Nan or Inf found in gt poses, skipping {i}th pose!',FontColor.INFO)
-            continue
-        
-        gt_pose = stream.poses[timestamp]
-        # 每个timestamp对应两个端点，加权
-        q_0 = matrix_to_quaternion(torch.tensor(gt_pose[0, :3, :3]))
-        q_1 = matrix_to_quaternion(torch.tensor(gt_pose[1, :3, :3]))
-
-        t_0 = gt_pose[0, :3,3]
-        t_1 = gt_pose[1, :3,3]
-
-        t_i_gt = torch.tensor(t_0) * (1 - u_index) + torch.tensor(t_1) * u_index
-        q_sl = slerp(u_index, q_0, q_1)
-        R_i_gt = quaternion_to_matrix(q_sl)
-
-        T_gt = np.eye(4)
-        T_gt[:3,:3] = R_i_gt.detach().cpu().numpy()
-        T_gt[:3,3] = t_i_gt.detach().cpu().numpy()
-
-        traj_est.append(video_traj[i])
-        traj_ref.append(T_gt)
-        timestamps.append(video_timestamps[i])
+    traj_est, traj_ref, timestamps, _ = build_evaluation_trajectory_pairs(
+        video_traj, video_timestamps, stream, printer=printer
+    )
 
     from evo.core.trajectory import PoseTrajectory3D
 
@@ -79,7 +207,7 @@ def align_kf_traj(npz_path,stream,return_full_est_traj=False,printer=None):
     from evo.core import sync
 
     traj_ref, traj_est = sync.associate_trajectories(traj_ref, traj_est)
-    r_a, t_a, s = traj_est.align(traj_ref, correct_scale=True)
+    r_a, t_a, s = _align_sim3_with_collinear_fallback(traj_est, traj_ref)
 
     if return_full_est_traj:
         from evo.core import lie_algebra as lie
@@ -91,43 +219,18 @@ def align_kf_traj(npz_path,stream,return_full_est_traj=False,printer=None):
     return r_a, t_a, s, traj_est, traj_ref    
 
 def align_full_traj(traj_est_full,stream,printer):
-
-    timestamps = []
-    traj_ref = []
-    traj_est = []
-
-    u = torch.linspace(
-        start=0,
-        end=1,
-        steps=stream.n_virtual_cams,
+    traj_est_full = np.asarray(traj_est_full)
+    if len(traj_est_full) != len(stream.poses):
+        raise ValueError(
+            "full estimated trajectory must match the augmented stream length: "
+            f"{len(traj_est_full)} != {len(stream.poses)}"
+        )
+    traj_est, traj_ref, timestamps, _ = build_evaluation_trajectory_pairs(
+        traj_est_full,
+        np.arange(len(traj_est_full), dtype=np.float64),
+        stream,
+        printer=printer,
     )
-    u_index = torch.tensor([0.5])
-    
-    for i in range(len(stream.poses)):
-        
-        val = stream.poses[i].sum()
-        if np.isnan(val) or np.isinf(val):
-            printer.print(f'Nan or Inf found in gt poses, skipping {i}th pose!',FontColor.INFO)
-            continue
-
-        gt_pose = stream.poses[i]
-        q_0 = matrix_to_quaternion(torch.tensor(gt_pose[0, :3, :3]))
-        q_1 = matrix_to_quaternion(torch.tensor(gt_pose[1, :3, :3]))
-
-        t_0 = gt_pose[0, :3,3]
-        t_1 = gt_pose[1, :3,3]
-
-        t_i_gt = torch.tensor(t_0) * (1 - u_index) + torch.tensor(t_1) * u_index
-        q_sl = slerp(u_index, q_0, q_1)
-        R_i_gt = quaternion_to_matrix(q_sl)
-
-        T_gt = np.eye(4)
-        T_gt[:3,:3] = R_i_gt.detach().cpu().numpy()
-        T_gt[:3,3] = t_i_gt.detach().cpu().numpy()
-
-        traj_est.append(traj_est_full[i])
-        traj_ref.append(T_gt)
-        timestamps.append(float(i))
     
     from evo.core.trajectory import PoseTrajectory3D
 
@@ -137,7 +240,7 @@ def align_full_traj(traj_est_full,stream,printer):
     from evo.core import sync
 
     traj_ref, traj_est = sync.associate_trajectories(traj_ref, traj_est)
-    r_a, t_a, s = traj_est.align(traj_ref, correct_scale=True)
+    r_a, t_a, s = _align_sim3_with_collinear_fallback(traj_est, traj_ref)
     return r_a, t_a, s, traj_est, traj_ref    
 
 
@@ -211,6 +314,16 @@ def full_traj_eval(traj_filler, plot_parent_dir, plot_name, stream,logger,printe
     kf_poses = SE3(traj_filler.video.poses[:kf_num].clone()).inv().matrix().data.cpu().numpy()
     traj_est[kf_timestamps] = kf_poses
     traj_est_not_align = traj_est.copy()
+    traj_est_not_align_timestamps = np.arange(
+        len(traj_est_not_align), dtype=np.float64
+    )
+    traj_est_not_align_eval_mask = np.asarray(
+        [
+            _frame_is_evaluation_target(stream, index)
+            for index in range(len(traj_est_not_align))
+        ],
+        dtype=np.bool_,
+    )
 
     r_a, t_a, s, traj_est, traj_ref = align_full_traj(traj_est, stream, printer)    
 
@@ -225,6 +338,10 @@ def full_traj_eval(traj_filler, plot_parent_dir, plot_name, stream,logger,printe
             traj_est_poses=np.array([pose for pose in traj_est.poses_se3]),
             traj_ref_poses=np.array([pose for pose in traj_ref.poses_se3]),
             traj_est_not_align=traj_est_not_align,
+            traj_est_not_align_timestamps=traj_est_not_align_timestamps,
+            traj_est_not_align_eval_mask=traj_est_not_align_eval_mask,
+            pose_source=np.asarray("droid_traj_est_not_align"),
+            uses_ground_truth_pose=np.asarray(False),
             timestamps=traj_est.timestamps,
             scale=s,
             rotation=r_a,

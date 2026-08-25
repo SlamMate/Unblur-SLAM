@@ -1,0 +1,98 @@
+# Selection-independent 221-frame tracking run.
+#
+# This file is consumed only by scripts/run_fr2_turtle_motion_only_tracking.py.
+# That runner constructs its RGB-only stream from frames_csv and deliberately
+# does not instantiate the repository TUM loader (which opens groundtruth.txt).
+# The scene alias also matches none of MotionFilter's built-in TUM anchor-list
+# aliases, so keyframes are admitted only by the DROID motion filter.
+inherit_from: ../../I2slam/freiburg2_xyz.yaml
+
+scene: tum_f2_motion221_v1
+stride: 1
+max_frames: 221
+setup_seed: 43
+device: cuda:0
+only_tracking: true
+warmup_mapper: false
+clear_init: false
+
+data:
+  dataset_root: /srv/szha0669/unblur-slam/datasets/TUM_RGBD
+  input_folder: rgbd_dataset_freiburg2_xyz
+  output: /srv/szha0669/unblur-slam/selection_independent/fr2_xyz_turtle_motion_only_tracking_221_v2
+  frames_csv: /srv/szha0669/unblur-slam/framecrafter_preprocess/fr2_xyz/estimated_frames.csv
+  frames_csv_sha256: 549f28a3c34d209c6d3741eae8b167268ff5dcd84ee24a572d68a8dcb66c7177
+
+deblur:
+  frontend: turtle_streaming
+  causal_checkpoint: ""
+  stream_every_frame: true
+  stream_apply_to_tracking: true
+  stream_min_laplacian_gain: 0.02
+  stream_replace_sharp: false
+  turtle_inference_precision: fp16
+  turtle_repo: /srv/szha0669/unblur-slam/external/TURTLE
+  turtle_config: /srv/szha0669/unblur-slam/external/TURTLE/options/Turtle_Deblur_Gopro.yml
+  turtle_checkpoint: /srv/szha0669/unblur-slam/pretrained/turtle/GoPro_Deblur.pth
+  turtle_repo_commit: 7094f4221b64ad0962b4f27ff1b76d788836e804
+  turtle_config_sha256: 123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23
+  turtle_checkpoint_sha256: 10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82
+
+# No image or trajectory metric is computed in this run. Evaluation is a
+# separate post-freeze command and may open reference data only after FROZEN.json
+# exists and matches every estimated-output byte.
+evaluation:
+  deferred_until_frozen: true
+
+framecrafter:
+  enabled: false
+  auto_prepare: false
+  manifest: ""
+
+submaps:
+  enabled: false
+  loop_backend: none
+
+mapping:
+  final_refine_iters: 0
+  eval_before_final_ba: false
+  resplat:
+    enabled: false
+    online_enabled: false
+    extra_iters: 0
+    log_csv: false
+    save_full_state: false
+
+tracking:
+  pretrained: /srv/szha0669/unblur-slam/pretrained/droid.pth
+  pretrained_sha256: 46476ef64cde45a97504910d6f3de2eef7b398ec1c6e4e668815c29076024526
+  motion_filter:
+    # Original DROID/GlORIE motion score only; no index-list fallback.
+    thresh: 2.5
+  backend:
+    final_ba: true
+
+mono_prior:
+  predict_online: true
+  depth_pretrained: /srv/szha0669/unblur-slam/pretrained/omnidata_dpt_depth_v2.ckpt
+  depth_pretrained_sha256: a0fab23fee64aa9e4bbe0b520b18b196ea7594a7f719c1d8c10cf11dcb6e4a1e
+
+selection_independent:
+  schema: unblur_slam.fr2_turtle_motion_only_tracking.v1
+  source_first: 0
+  source_last: 220
+  expected_source_count: 221
+  keyframe_policy: droid_motion_filter_only
+  motion_filter_threshold_px: 2.5
+  predefined_tracking_anchors: false
+  clear_gt_membership_used: false
+  ground_truth_pose_read_before_freeze: false
+  evaluation_deferred_until_frozen: true
+  source_scene_identity: freiburg2_xyz
+  source_scene_alias_is_non_protocol: true
+  physical_gpu: 1
+  cuda_visible_devices: "1"
+  process_device: cuda:0
+  motion_filter_source_sha256: 746d4aeab5c0c6d09ddcd72d60d1ccff36b3e1124861bf8bb2e91d3311ddde67
+  tracker_source_sha256: 63872ada66091bebb386edcc0d9f9552bb909afbc2b9fc839a24c8a53e64a9e0
+  turtle_backend_source_sha256: a2dee19a1017d5450714cf4e9c729cd32974d2f5237a783534740f5cccf6d6dd

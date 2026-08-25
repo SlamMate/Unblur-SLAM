@@ -1,0 +1,83 @@
+# Shared contract for the fr2_xyz residual-replay smoke matrix.
+#
+# This is deliberately a *smoke* budget, not the paper/26K protocol.  The
+# source prefix ends immediately after the last published clear-GT frame
+# (source index 2764), so all 42 clear-GT targets remain valid while avoiding
+# the unused tail of the 3397-frame stream.  Every arm inherits this file and
+# differs only in mapping.resplat plus its output directory.
+inherit_from: ../../I2slam/freiburg2_xyz.yaml
+
+scene: freiburg2_xyz
+stride: 1
+max_frames: 2765
+setup_seed: 43
+device: cuda:0
+warmup_mapper: true
+
+# Keep the original TUM mapper resolution.  The input images are 640x480, but
+# tracking/mapping/evaluation operate on the paper-aligned 512x384 tensors.
+cam:
+  H_out: 384
+  W_out: 512
+
+# Do not include generated observations in this replay-only smoke matrix.
+# FrameCrafter has its own augmentation ablation and is intentionally held
+# constant (off) here.
+framecrafter:
+  enabled: false
+  auto_prepare: false
+  manifest: ""
+
+# This matrix uses the official single-frame motion EVSSM checkpoint.  The
+# separately exported causal-video frontend has an explicit placeholder config
+# in causal_frontend.example.yaml and is not silently substituted here.
+evssm_checkpoint: /srv/szha0669/unblur-slam/pretrained/net_g_latest_batch_8_no_NYU.pth
+deblur:
+  frontend: evssm
+
+data:
+  dataset_root: /srv/szha0669/unblur-slam/datasets/TUM_RGBD
+  # Every runnable child MUST override this value.
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_resplat/_common_do_not_run
+
+tracking:
+  pretrained: /srv/szha0669/unblur-slam/pretrained/droid.pth
+  backend:
+    final_ba: true
+
+mono_prior:
+  depth_pretrained: /srv/szha0669/unblur-slam/pretrained/omnidata_dpt_depth_v2.ckpt
+
+mapping:
+  online_plotting: false
+  # Preserve the legacy online Mapper bootstrap. After final global DROID BA,
+  # promote every missing DepthVideo keyframe (not an eval-frame allow-list)
+  # into the offline refinement camera pool using final DROID pose/depth.
+  hydrate_missing_droid_keyframes: true
+  # Avoid the extra pre-BA rendering pass; final and milestone evaluation are
+  # still restricted to the complete 42-frame clear-GT protocol.
+  eval_before_final_ba: false
+  final_refine_iters: 400
+  Training:
+    # Small but non-zero online budgets exercise map creation and online
+    # background-view refinement in every arm.
+    init_itr_num: 100
+    mapping_itr_num: 10
+    tracking_itr_num: 10
+  resplat:
+    backend: residual_replay
+    budget_mode: replace_tail
+    # Child configs set enabled/online_enabled/extra_iters explicitly.
+    enabled: false
+    online_enabled: false
+    extra_iters: 0
+    online_replay_views: 2
+    checkpoint_interval: 100
+    checkpoint_steps: [100, 200, 400]
+    checkpoint_clear_gt_psnr: true
+    save_full_state: false
+    log_csv: true
+
+submaps:
+  enabled: false
+  loop_backend: none

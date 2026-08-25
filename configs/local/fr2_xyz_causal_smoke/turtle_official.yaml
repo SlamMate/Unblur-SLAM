@@ -1,0 +1,48 @@
+# Official GoPro TURTLE-only bounded SLAM smoke.
+#
+# The causal K/V frontend advances on all source frames 0..220.  No custom
+# causal-EVSSM checkpoint and no historical residual-replay refinement is
+# active.  Final refinement is exactly 100 ordinary/uniform iterations.
+inherit_from: ./common.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_official_turtle_smoke/gopro_stream_221
+
+# Kept empty intentionally: the active frontend never imports or loads EVSSM.
+evssm_checkpoint: ""
+evssm_checkpoint_sha256: ""
+
+deblur:
+  frontend: turtle_streaming
+  causal_checkpoint: ""
+  stream_every_frame: true
+  stream_apply_to_tracking: true
+  stream_min_laplacian_gain: 0.02
+  stream_replace_sharp: false
+  turtle_repo: /srv/szha0669/unblur-slam/external/TURTLE
+  turtle_config: /srv/szha0669/unblur-slam/external/TURTLE/options/Turtle_Deblur_Gopro.yml
+  turtle_checkpoint: /srv/szha0669/unblur-slam/pretrained/turtle/GoPro_Deblur.pth
+  turtle_repo_commit: 7094f4221b64ad0962b4f27ff1b76d788836e804
+  turtle_config_sha256: 123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23
+  turtle_checkpoint_sha256: 10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82
+
+mapping:
+  final_refine_iters: 100
+  resplat:
+    enabled: false
+    online_enabled: false
+    extra_iters: 0
+    log_csv: false
+    save_full_state: false
+
+official_turtle_smoke:
+  schema: unblur_slam.fr2_xyz_official_turtle_smoke.v1
+  frontend_provider: official_ascend_research_turtle_gopro
+  stream_source_first: 0
+  stream_source_last: 220
+  expected_stream_steps: 221
+  expected_clear_gt_source_indices: [0, 9, 15, 49, 58, 72, 89, 109, 125, 166, 220]
+  old_mapping_resplat_used: false
+  residual_replay_used: false
+  causal_evssm_used: false
+  evssm_used: false

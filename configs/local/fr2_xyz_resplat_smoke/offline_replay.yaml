@@ -1,0 +1,11 @@
+inherit_from: ./common.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_resplat/offline_replay
+
+mapping:
+  resplat:
+    enabled: true
+    online_enabled: false
+    # Equal-budget replacement: 300 uniform + 100 residual replay = 400.
+    extra_iters: 100

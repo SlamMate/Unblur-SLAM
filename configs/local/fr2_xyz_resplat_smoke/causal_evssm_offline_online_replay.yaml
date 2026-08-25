@@ -1,0 +1,24 @@
+# Functional smoke for the requested Unblur-SLAM-EVSSM video frontend.
+#
+# This deliberately does NOT use TURTLE/GoPro weights.  Every raw frame first
+# passes through the official Unblur-SLAM motion EVSSM checkpoint inherited
+# from common.yaml, then through the causal temporal adapter trained on
+# content-bound EVSSM outputs.  The embedded metadata and run.py preflight
+# require the exact EVSSM SHA-256 to match before any GPU SLAM worker starts.
+inherit_from: ./offline_online_replay.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_resplat/causal_evssm_offline_online_replay
+
+deblur:
+  frontend: causal_evssm
+  causal_checkpoint: /srv/szha0669/unblur-slam/causal_video_runs/replica40_evssm_adapter_v2/causal_evssm.pt
+  causal_history: 5
+  stream_every_frame: true
+  stream_apply_to_tracking: true
+  stream_replace_sharp: false
+  stream_min_laplacian_gain: 0.02
+  # Never replace the original EVSSM result when the temporal correction has
+  # lower Laplacian sharpness.  This is an online safety gate, not a claim that
+  # Laplacian sharpness alone measures restoration fidelity.
+  stream_min_vs_evssm_gain: 0.0

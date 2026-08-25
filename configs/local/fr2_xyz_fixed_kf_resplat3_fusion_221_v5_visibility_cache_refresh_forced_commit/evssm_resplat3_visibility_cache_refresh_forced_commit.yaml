@@ -1,0 +1,8 @@
+inherit_from: ./common.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_fixed_kf_resplat3_fusion_221_v5_visibility_cache_refresh_forced_commit/evssm_resplat3_visibility_cache_refresh_forced_commit
+
+mapping:
+  official_resplat_active_fusion:
+    enabled: true

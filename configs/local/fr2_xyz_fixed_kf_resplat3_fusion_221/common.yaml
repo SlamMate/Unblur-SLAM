@@ -1,0 +1,157 @@
+# Paired first-8-KF active-fusion experiment on the bounded fr2_xyz prefix.
+#
+# Both arms use official Unblur-SLAM EVSSM, the same frozen 11-keyframe source
+# schedule, the published online optimization budgets, and 100 ordinary final
+# iterations.  The treatment arm changes only the preregistered, synchronous
+# official-ReSplat state3 fusion switch.  It is not a three-sequence paper
+# benchmark and it is not the paper's 26K offline-refinement protocol.
+inherit_from: ../fr2_xyz_official_online_budget_221/common.yaml
+
+paired_official_online_budget_221:
+  schema: unblur_slam.fr2_xyz_paired_official_online_budget_221.v1
+  comparison: fixed_11kf_evssm_no_fusion_vs_official_resplat_state3_active_fusion
+
+fixed_kf_resplat3_active_fusion_221:
+  schema: unblur_slam.fr2_xyz_fixed_kf_resplat3_active_fusion_221.v1
+  treatment: official_cvg_resplat_state3_append_into_active_unblur_map
+  conditional_on_frozen_evssm_baseline_schedule: true
+  shares_pose_estimates_between_arms: false
+  uses_ground_truth_poses_for_slam_or_fusion: false
+  selection_membership_clear_gt_conditioned: true
+  uses_ground_truth_poses_or_depths_for_fusion: false
+  uses_independent_clear_pixels_for_fusion: false
+  uses_clear_gt_metrics_for_fusion_gate: false
+  runtime_baseline_artifact_dependency: false
+  complete_three_sequence_paper_benchmark: false
+  paper_26k_offline_refinement: false
+  trigger_after_mapped_keyframe_count: 8
+  expected_first_eight_mapped_source_indices: [15, 49, 58, 72, 89, 109, 125, 166]
+  trigger_source_index: 166
+  downstream_online_mapped_source_indices_after_fusion: [220]
+  maximum_fusion_attempts: 1
+  synchronous_blocking_timing: true
+  subprocess_gate_and_merge_inside_online_timer: true
+  official_recurrent_updates: 3
+  official_selected_state_index_zero_based: 2
+  fourth_recurrent_state_computed: false
+  merge_policy: append_voxel_deduplicated_capped
+  postmerge_reconstruction_gate_can_rollback: true
+  frozen_baseline_video_npz: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_official_online_budget_221/evssm_baseline/freiburg2_xyz/video.npz
+  frozen_baseline_video_npz_sha256: 39afbe2135480ae77530719f7bab2a5facc1b5fe0e4f2c62f045fafe25802ed8
+
+tracking:
+  fixed_source_keyframes:
+    enabled: true
+    schema: unblur_slam.fixed_source_keyframes.v1
+    coordinate_domain: dataset_source_index
+    strict_exact: true
+    selection_source: frozen_prior_evssm_baseline_schedule
+    runtime_baseline_artifact_dependency: false
+    uses_ground_truth_poses: false
+    source_indices: [0, 9, 15, 49, 58, 72, 89, 109, 125, 166, 220]
+
+evssm_checkpoint: /srv/szha0669/unblur-slam/pretrained/net_g_latest_batch_8_no_NYU.pth
+evssm_checkpoint_sha256: 4c18cd0c783b88e0c4efb8afb60642afed6bdc682cb076bcdd8c358e3c565b41
+
+deblur:
+  frontend: evssm
+  causal_checkpoint: ""
+
+mapping:
+  # This is official cvg/ReSplat, not the historical residual-replay sampler.
+  resplat:
+    enabled: false
+    online_enabled: false
+    extra_iters: 0
+    log_csv: false
+    save_full_state: false
+
+  official_resplat_active_fusion:
+    schema: unblur_slam.official_resplat_active_fusion_config.v1
+    enabled: false
+    synchronous: true
+    trigger_keyframe_count: 8
+    trigger_source_index: 166
+    expected_mapped_source_indices: [15, 49, 58, 72, 89, 109, 125, 166]
+    max_fusion_attempts: 1
+    refinement_updates: 3
+    selected_state_index_zero_based: 2
+    fourth_state_computed: false
+    uses_ground_truth: false
+    selection_membership_clear_gt_conditioned: true
+    uses_ground_truth_poses_or_depths_for_fusion: false
+    uses_independent_clear_pixels_for_fusion: false
+    uses_clear_gt_metrics: false
+    output_root: ""
+    python_executable: /srv/szha0669/unblur-slam/envs/resplat-official-py312-torch270-cu128/bin/python
+    runner_script: /home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/run_official_resplat_sidecar.py
+    resplat_repo: /srv/szha0669/unblur-slam/external/resplat
+    resplat_repo_commit: cae7ddc4cdbd80e05e9f5fa00f5ea02c4e9056b1
+    checkpoint: /srv/szha0669/unblur-slam/pretrained/resplat-official/resplat-small-dl3dv-256x448-view8-548993fe.pth
+    expected_checkpoint_sha256: 548993fede0d9536d2d914cbe51e0ebea0ad6f88c898c909e02127d59bb2be9a
+    model_preset: dl3dv_8v_256x448_small
+    cuda_visible_devices: "1"
+    process_device: cuda:0
+    near: 0.01
+    far: 200.0
+    max_runtime_seconds: 60.0
+    max_pose_revision_lag: 0
+    max_pose_translation_drift: 0.0
+    max_pose_rotation_drift_deg: 0.0
+
+    # Geometry gates are evaluated from the immutable state3 artifact and the
+    # eight online-estimated poses only.  Clear/reference frames are forbidden.
+    geometry_gate:
+      expected_gaussian_count: 71680
+      min_finite_fraction: 1.0
+      max_p95_distance_from_pivot: 50.0
+      max_distance_from_pivot: 200.0
+      max_p95_scale: 5.0
+      max_scale: 25.0
+      max_quaternion_norm_deviation: 0.001
+
+    # ReSplat self-reconstruction is a safety check on its eight causal input
+    # observations. It is not a held-out quality result and cannot select a
+    # reported clear-GT checkpoint.
+    sidecar_quality_gate:
+      require_metrics: true
+      metric_inputs: eight_context_observations
+      minimum_state3_mean_psnr_db: 12.0
+      minimum_state3_mean_ssim: 0.50
+      maximum_state3_mean_l1: 0.30
+      require_state3_composite_nonworse_than_init0: true
+      composite_l1_weight: 0.80
+      composite_one_minus_ssim_weight: 0.20
+
+    merge:
+      mode: append
+      min_opacity: 0.5
+      min_scale: 0.000001
+      max_scale: 0.2
+      voxel_size: 0.01
+      max_new_gaussians: 20000
+      min_new_gaussians: 1024
+      zero_sh_rest: true
+      max_abs_position: 200.0
+
+    # Trial append is accepted only if online-observation reconstruction is
+    # stable. A rejected trial removes exactly the appended tail and restores
+    # the pre-merge Gaussian count and optimizer tensor shapes.
+    postmerge_quality_gate:
+      metric_inputs: same_eight_context_observations
+      renderer_proxy: exposure_compensated_midpoint_without_learned_blur
+      purpose: isolate_active_gaussian_map_change
+      l1_weight: 0.80
+      one_minus_ssim_weight: 0.20
+      maximum_relative_mean_composite_increase: 0.005
+      maximum_absolute_per_view_composite_increase: 0.02
+      rollback_on_rejection: true
+
+submaps:
+  enabled: false
+  loop_backend: none
+  official_resplat_sidecar:
+    enabled: false
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_fixed_kf_resplat3_fusion_221/_common_do_not_run

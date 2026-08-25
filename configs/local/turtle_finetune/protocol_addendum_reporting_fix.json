@@ -1,0 +1,18 @@
+{
+  "schema": "unblur_slam.turtle_temporal_v2_reporting_fix.v1",
+  "status": "frozen_after_seed17_validation_before_multiseed_report",
+  "created_date": "2026-08-22",
+  "disclosure": "After seed17 validation, the v2 reporter preflight found that its v1 compatibility view omitted the already-preregistered per-seed checkpoint parent as output_root. This processing-only fix adds that path mapping and requires this disclosure in the final report.",
+  "binds": {
+    "contract_sha256": "2ba40ff5fd2110cb88bf19b14563875325d6816305a8d846a0e0e9d42f0f9514",
+    "motion_addendum_sha256": "04ca76749214b67c160fd07b3aa219bb3e0fb22aa925d6ef61e8b1c470bb731b"
+  },
+  "change_scope": "reporter provenance path normalization only",
+  "training_or_evaluation_code_changed": false,
+  "metric_values_or_gates_changed": false,
+  "room2_opened": false,
+  "implementation_pin_overrides": {
+    "report_script_sha256": "cd9075f8f5b5157e9c0cba5e601862bcc1a56c31d2380a3fa71c5840152f2111",
+    "report_test_sha256": "a3b1aadef2eb2a4422eaec7aeda6833a6b3c3cfc2e51440a559bde67ff6b64b5"
+  }
+}

@@ -14,18 +14,36 @@
 
 import os
 from pathlib import Path
-from thirdparty.EVSSM.models.EVSSM import EVSSM
-from torchvision.transforms import functional as F
-import torch.nn.functional as nnF
 from thirdparty.glorie_slam.motion_filter import MotionFilter
 import torch
 from colorama import Fore, Style
 from multiprocessing.connection import Connection
 from src.utils.datasets import BaseDataset
 from src.utils.Printer import Printer,FontColor
-from thirdparty.monogs.utils.slam_utils import variance_of_laplacian
 from src.utils.common import save_tensor
-import cv2
+from src.utils.fixed_keyframes import assert_exact_fixed_source_keyframes
+
+
+def _preserve_latest_keyframe(track_info):
+    """Protect explicit protocol/enhanced observations from second culling."""
+    if not bool(track_info.get("appended", False)):
+        return False
+    return bool(track_info.get("tracking_anchor", False)) or bool(
+        track_info.get("synthetic", False)
+    ) or (
+        bool(track_info.get("streaming_replaced", False))
+        and not bool(track_info.get("streaming_evssm_fallback", False))
+        and bool(track_info.get("motion_keyframe", False))
+    )
+
+
+def _should_map_full_warmup(mapper_initialized, configured_warmup, pending_preserved):
+    """Replay warmup when configured or required by a protected observation."""
+    return not bool(mapper_initialized) and (
+        bool(configured_warmup) or bool(pending_preserved)
+    )
+
+
 class Tracker:
     def __init__(self, slam, pipe:Connection):
         self.cfg = slam.cfg
@@ -52,7 +70,16 @@ class Tracker:
 
 
         # Initialize EVSSM model if fake_sharp is enabled
-        self.fake_sharp = self.cfg.get("fake_sharp", False)
+        deblur_frontend = str(
+            (self.cfg.get("deblur", {}) or {}).get("frontend", "evssm")
+        ).lower()
+        self.fake_sharp = self.cfg.get("fake_sharp", False) or deblur_frontend in {
+            "causal_torchscript",
+            "causal_evssm",
+            "turtle_streaming",
+            "turtle_bsd_streaming",
+            "precomputed",
+        }
         self.sharp_judge = self.cfg.get("sharp_judge", False)
     
     def run(self, stream:BaseDataset):
@@ -70,6 +97,7 @@ class Tracker:
         curr_kf_idx = 0
         prev_ba_idx = 0
         init = False
+        pending_preserved_warmup = False
         number_of_kf = 0
         intrinsic = stream.get_intrinsic()
         # for (timestamp, image, _, _) in tqdm(stream):
@@ -77,10 +105,10 @@ class Tracker:
         dataset = self.cfg["dataset"]
         fake_sharp_gt = self.cfg["fake_sharp_gt"]
         sharp_judge = self.cfg["sharp_judge"]
-        fake_sharp = self.cfg["fake_sharp"]
+        fake_sharp = self.fake_sharp
 
-        sequence = self.cfg["scene"]
         blur_degree = 0.0
+        sharp_dir = str(Path(self.output) / "sharp")
 
         length = len(stream)
 
@@ -91,7 +119,6 @@ class Tracker:
             # 初始帧是锐利帧
             if dataset == "replica_blurry" and fake_sharp_gt and i!=0:
                 timestamp, image, _, _, _, sharp_image_gt = stream[i]
-                # sharp_dir = f"./output/sharp/{dataset}/{sequence}"
                 # save_tensor(image, timestamp, sharp_dir, True)
                 image = sharp_image_gt
             else:
@@ -112,14 +139,9 @@ class Tracker:
                     else:
                         image, blur_degree, is_kf, is_blurry = self.motion_filter.track(timestamp, image, intrinsic, fake_sharp, sharp_judge, stream, init)
                     if is_kf:
-                        if not self.only_tracking and image is not None and is_blurry:
-                            sharp_dir = f"./output/sharp/{dataset}/{sequence}"
+                        if not self.only_tracking and image is not None:
                             # save_tensor(image, timestamp, sharp_dir)
                             save_tensor(image, timestamp, sharp_dir, True)
-                        # 跟踪only模式的可视化选项
-                        if self.only_tracking and image is not None and is_blurry:
-                            sharp_dir = f"./output/sharp/{dataset}/{sequence}"
-                            # save_tensor(image, timestamp, sharp_dir, True)
                         # 模糊了然后如果去模糊失败的回退机制
                         if blur_degree is None and is_blurry and self.cfg["backend_compensation"] and not self.only_tracking and self.cfg["exam_blur_score"]:
                             self.pipe.send({"is_keyframe": True, "video_idx": curr_kf_idx,
@@ -145,9 +167,50 @@ class Tracker:
                             is_mapping = True
                         """
                 else:
-                    self.motion_filter.track(timestamp, image, intrinsic)
-                # Local bundle adjustment
-                self.frontend()
+                    # Even the initialization frame must enter a causal video
+                    # deblurrer's history before DROID feature extraction.
+                    initial_result = self.motion_filter.track(
+                        timestamp,
+                        image,
+                        intrinsic,
+                        fake_sharp,
+                        sharp_judge,
+                        stream,
+                        init,
+                    )
+                    if initial_result is not None:
+                        if self.cfg["exam_blur_score"]:
+                            image, blur_degree, is_kf, is_blurry, check_score = initial_result
+                        else:
+                            image, blur_degree, is_kf, is_blurry = initial_result
+                        if image is not None:
+                            save_tensor(image, timestamp, sharp_dir, True)
+                track_info = getattr(self.motion_filter, "last_track_info", {})
+                fixed_contract = getattr(
+                    self.motion_filter, "fixed_source_keyframe_contract", None
+                )
+                if fixed_contract is not None:
+                    source_index = int(stream.source_frame_index(i))
+                    scheduled = source_index in fixed_contract["source_index_set"]
+                    appended = bool(track_info.get("appended", False))
+                    if scheduled and not appended:
+                        raise RuntimeError(
+                            "scheduled fixed source keyframe was not appended: "
+                            f"source_index={source_index}"
+                        )
+                    if appended and not scheduled:
+                        raise RuntimeError(
+                            "unscheduled frame entered fixed-keyframe video: "
+                            f"source_index={source_index}"
+                        )
+                preserve_latest = _preserve_latest_keyframe(track_info)
+                if not init and preserve_latest:
+                    pending_preserved_warmup = True
+
+                # Local bundle adjustment. FrameCrafter observations and
+                # motion-significant streaming-deblur recoveries still run
+                # normal BA, but are not immediately removed as redundant.
+                self.frontend(preserve_latest=preserve_latest)
 
             curr_kf_idx = self.video.counter.value - 1
             
@@ -161,7 +224,11 @@ class Tracker:
                 if (not self.only_tracking) and (number_of_kf % self.every_kf == 0):
 
                     # Inform the mapper that the estimation of current pose and depth is finished
-                    if not init and self.cfg['clear_init']:
+                    if (
+                        not init
+                        and self.cfg['clear_init']
+                        and not pending_preserved_warmup
+                    ):
                         if fake_sharp and is_blurry and self.cfg["exam_blur_score"]:
                             self.pipe.send({"is_keyframe": True, "video_idx": 0,
                                             "timestamp": stream[0][0], "end": False, "blur_degree":blur_degree, "check_score":check_score})
@@ -179,7 +246,11 @@ class Tracker:
                                             "timestamp": stream[0][0], "end": False})
                         self.pipe.recv()
                         init = True
-                    elif not init and self.cfg['warmup_mapper']:
+                    elif _should_map_full_warmup(
+                        init,
+                        self.cfg.get('warmup_mapper', False),
+                        pending_preserved_warmup,
+                    ):
                         print("init_warm_up")
                         print(curr_kf_idx)
                         # 循环发送所有累积的预热关键帧 (0 -> curr_kf_idx)
@@ -199,9 +270,6 @@ class Tracker:
                             }
                             # 判断是否为锐利帧，如果为锐利帧则blur_degree=0
                             # 锐利帧的判断往往通过是否有神经网络输出的去模糊图像为准
-                            dataset = self.cfg["dataset"]
-                            sequence = self.cfg["scene"]
-                            sharp_dir = f"./output/sharp/{dataset}/{sequence}"
                             sharp_file = Path(sharp_dir) / f"{kf_timestamp}.pt"
                             if os.path.exists(sharp_file):
                                 payload["check_score"] = 0.82
@@ -212,6 +280,7 @@ class Tracker:
                             self.pipe.send(payload)
                             self.pipe.recv()
                         init = True
+                        pending_preserved_warmup = False
                     else:
                         print("follow")
                         print(curr_kf_idx)
@@ -239,6 +308,23 @@ class Tracker:
 
             prev_kf_idx = curr_kf_idx
             self.printer.update_pbar()
+
+        fixed_contract = getattr(
+            self.motion_filter, "fixed_source_keyframe_contract", None
+        )
+        if fixed_contract is not None:
+            count = int(self.video.counter.value)
+            actual_timestamps = [
+                int(self.video.timestamp[index].item()) for index in range(count)
+            ]
+            actual = [
+                int(stream.source_frame_index(timestamp))
+                for timestamp in actual_timestamps
+            ]
+            assert_exact_fixed_source_keyframes(
+                fixed_contract["source_indices"], actual
+            )
+            print(f"TRACKING: fixed source-keyframe contract passed: {actual}")
 
         if not self.only_tracking:
             if fake_sharp and is_blurry and self.cfg["exam_blur_score"]:

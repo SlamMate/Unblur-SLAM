@@ -169,6 +169,18 @@ Append `--only_tracking` to skip mapping/rendering and only produce the camera t
 python run.py configs/I2slam/freiburg3_office.yaml --only_tracking
 ```
 
+### Experimental offline enhancement
+
+The two-pass FrameCrafter path now includes DROID-anchor frustum/RGB-D overlap
+planning, optional image RANSAC and metric RGB-D PnP refinement, same-gap
+multi-view generation, role-aware RAW/EVSSM/hybrid contexts, immutable
+multi-machine sharding, and strict candidate-quality partitions. The LoRA and
+causal video-deblur scripts are experimental training entry points; this
+repository does not claim trained weights or SLAM gains from them. The strict
+26K residual-replay budget, clear-GT evaluation protocol, implementation
+status, and current submap boundary are documented in
+[`docs/OFFLINE_ENHANCEMENT_ZH.md`](docs/OFFLINE_ENHANCEMENT_ZH.md).
+
 ## 🔬 Pipeline at a glance
 
 - **Blur quantification** with ARNIQA classifies each frame as sharp / blurry-success / blurry-fail.

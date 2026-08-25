@@ -1,0 +1,58 @@
+# Unsafe post-hoc diagnostic after the v3 exact-count mismatch rollback.
+# Every scientific, geometry, ReSplat, merge-filter, and postmerge-gate value
+# inherits unchanged directly from v2.  Only the cross-run equality-to-5554
+# requirement is removed: the fresh accepted count must remain within the
+# preregistered merge bounds and must exactly equal after_count-before_count.
+inherit_from: ../fr2_xyz_fixed_kf_resplat3_fusion_221_v2/common.yaml
+
+fixed_kf_resplat3_active_fusion_221_v4:
+  schema: unblur_slam.fr2_xyz_fixed_kf_resplat3_count_agnostic_forced_commit_221.v4
+  experiment_revision: v4_count_agnostic_forced_commit
+  posthoc_after_v2_rejection: true
+  posthoc_after_v3_count_mismatch: true
+  unsafe_not_deployable: true
+  gate_thresholds_unchanged: true
+  merge_filters_unchanged: true
+  force_only_after_postmerge_gate_rejection: true
+  cross_run_exact_candidate_count_required: false
+  fresh_accepted_count_minimum: 1024
+  fresh_accepted_count_maximum: 20000
+  fresh_after_minus_before_must_equal_accepted_count: true
+  v4_reruns_official_resplat: true
+  v2_resplat_runtime_artifacts_reused: false
+  v3_resplat_runtime_artifacts_reused: false
+  single_v4_fused_arm_only: true
+  cross_revision_references_not_fresh_paired_reruns: true
+  v2_baseline_reference_root: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_fixed_kf_resplat3_fusion_221_v2/evssm_no_fusion
+  v2_baseline_resolved_cfg_yaml_sha256: 705cc02064fe4219a0b48b26fde32067a53cbf36def8333f10500375c21f5133
+  v2_baseline_canonical_resolved_config_sha256: 222abf4c8b7a96d04b93afc63a4a64dc706c0376070cb74be8ce9af1355d4956
+  v2_baseline_frozen_tree_sha256: 54fa5800205dc980ce0cb8fc3f23798cdd07fe2b532fad1f6a3c723d9ee04ecc
+  v2_rollback_reference_root: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_fixed_kf_resplat3_fusion_221_v2/evssm_resplat3_active_fusion
+  v2_rollback_fusion_audit_sha256: a8e65b6851c998c0038bf228a337de18af9cc182cfa4d711e5a92d9543053c3d
+  v2_rollback_canonical_resolved_config_sha256: fe0b2709bd780a6b0f1b2f3e6693c6bd568617522b7e02d0e97a3b89a9648c52
+  v2_rollback_frozen_tree_sha256: 5256a557e26f09a02438f241cae56ebad1bc654455d50d2a83a7951b62246eca
+  v2_experiment_audit_sha256: f95b9fdf74e0458e7e7103640c764f27c2b126e368db0b3508fa354deae53bc3
+  v3_failed_attempt_root: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_fixed_kf_resplat3_fusion_221_v3_forced_commit/evssm_resplat3_forced_commit
+  v3_failed_attempt_fusion_audit_sha256: 1f0ef9f3657fdca2b4dec317de27e22c4d80bb4523df56a9a584b389fe863864
+  v3_failed_attempt_frozen_tree_sha256: 9e12c3d3254efa2d579b4ee8bb32876eb6235821919ea24744b048c5c9e10ed0
+  v3_failed_attempt_launcher_runtime_sha256: 9dee7cb8a6d61d3350e685481945167bd7679cb0a30eb42e9e2a34c9cdbb3c89
+  v3_failed_attempt_status: forced_commit_candidate_count_mismatch_rolled_back
+  v3_failed_attempt_accepted_count: 5716
+  v3_failed_attempt_before_count: 72645
+  v3_failed_attempt_trial_count: 78361
+
+mapping:
+  official_resplat_active_fusion:
+    schema: unblur_slam.official_resplat_active_fusion_config.v3_count_agnostic_forced_commit_diagnostic
+    posthoc_after_v2_rejection: true
+    unsafe_not_deployable: true
+    gate_thresholds_unchanged: true
+    force_commit_after_postmerge_rejection: true
+    expected_forced_commit_gaussian_count: 0
+    v2_rejection_audit_sha256: a8e65b6851c998c0038bf228a337de18af9cc182cfa4d711e5a92d9543053c3d
+    posthoc_after_v3_count_mismatch: true
+    count_agnostic_forced_commit: true
+    v3_count_mismatch_audit_sha256: 1f0ef9f3657fdca2b4dec317de27e22c4d80bb4523df56a9a584b389fe863864
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_fixed_kf_resplat3_fusion_221_v4_count_agnostic_forced_commit/_common_do_not_run

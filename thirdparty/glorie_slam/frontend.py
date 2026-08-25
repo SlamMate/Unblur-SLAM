@@ -16,6 +16,12 @@ import torch
 from thirdparty.glorie_slam.factor_graph import FactorGraph
 from thirdparty.glorie_slam.backend import Backend as LoopClosing
 
+
+def should_cull_latest_keyframe(distance, threshold, preserve_latest=False):
+    """Return whether the newest keyframe should be removed after local BA."""
+    return float(distance) < float(threshold) and not bool(preserve_latest)
+
+
 class Frontend:
     # mainly inherited from GO-SLAM
     def __init__(self, net, video, cfg):
@@ -51,7 +57,7 @@ class Frontend:
             max_factors=self.frontend_max_factors
         )
 
-    def __update(self):
+    def __update(self, preserve_latest=False):
         """ add edges, perform update """
 
         self.t1 += 1
@@ -70,7 +76,9 @@ class Frontend:
         d = self.video.distance([self.t1-2], [self.t1-1], beta=self.beta, bidirectional=True)
 
 
-        if d.item() < self.keyframe_thresh:
+        if should_cull_latest_keyframe(
+            d.item(), self.keyframe_thresh, preserve_latest=preserve_latest
+        ):
             self.graph.rm_keyframe(self.t1 - 1)            
             with self.video.get_lock():
                 self.video.counter.value -= 1
@@ -130,7 +138,7 @@ class Frontend:
 
         self.graph.rm_factors(self.graph.ii < self.warmup-4, store=True)
 
-    def __call__(self):
+    def __call__(self, preserve_latest=False):
         """ main update """
 
         # do initialization
@@ -140,6 +148,6 @@ class Frontend:
             
         # do update
         elif self.is_initialized and self.t1 < self.video.counter.value:
-            self.__update()
+            self.__update(preserve_latest=preserve_latest)
             self.video.update_valid_depth_mask()
         

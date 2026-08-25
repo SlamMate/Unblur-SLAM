@@ -1,0 +1,301 @@
+{
+  "schema": "unblur_slam.turtle_replica424_dpdd_hf_mixed_finetune.v3",
+  "status": "cpu_implementation_ready_gpu_blocked_until_dpdd_artifacts_are_content_addressed",
+  "created_date": "2026-08-22",
+  "scope": "exploratory_multiseed_ablation_not_paper_metric",
+  "objective": "Add paired single-image defocus restoration to the official causal TURTLE model without letting unrelated single images write, reuse, or train its historical K/V pathway, while retaining ReplicaBlurry full-sequence history training.",
+  "interpretation_rule": "DPDD single-image improvement is current-frame spatial restoration. A history claim additionally requires same-checkpoint persistent/reset/repeat/shuffled controls on real ordered video and an interaction against a non-video-trained checkpoint.",
+  "audited_current_implementation": {
+    "train_script": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/train_turtle_streaming.py",
+    "train_script_sha256": "2379e91cc338e51ffc843c74e3b28d0460b84b4f1dab562320b9557aa1e1bd1c",
+    "current_capabilities": [
+      "one ordered sequence manifest",
+      "hard K/V reset at every JSONL record",
+      "full-sequence BPTT or legacy one-frame truncation",
+      "all parameters or five history-attention modules"
+    ],
+    "limitations_of_original_train_script_addressed_by_extension": [
+      "second paired single-image sampler",
+      "source-alternating parameter masks",
+      "refinement-plus-ending spatial scope",
+      "mixed-source checkpoint metadata"
+    ],
+    "implemented_extension": {
+      "trainer": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/train_turtle_mixed_defocus.py",
+      "mode_arms": ["V", "S", "M"],
+      "frozen_base_arm": "G",
+      "mixed_step": "two_backward_one_joint_step"
+    },
+    "official_training_observation": {
+      "source": "/srv/szha0669/unblur-slam/external/TURTLE/basicsr/models/video_restoration_model.py",
+      "source_sha256": "90b3068e5b6a86937ad10f0932fa227735cc710a7acc57458a26c24587ca9a81",
+      "sequence_length": 5,
+      "cache_detached_inside_sequence": false,
+      "optimizer_step": "one backward after mean L1 over all five frames",
+      "cache_boundary": "reset for every sampled five-frame sequence"
+    }
+  },
+  "model": {
+    "name": "official_TURTLE_Turtle_t1",
+    "repo": "/srv/szha0669/unblur-slam/external/TURTLE",
+    "repo_commit": "7094f4221b64ad0962b4f27ff1b76d788836e804",
+    "architecture_sha256": "4d19c676f92574dbad493eb591312fdeaf2b3b519f57410af2ed95fdbef5f058",
+    "config": "/srv/szha0669/unblur-slam/external/TURTLE/options/Turtle_Deblur_Gopro.yml",
+    "config_sha256": "123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23",
+    "base_checkpoint": "/srv/szha0669/unblur-slam/pretrained/turtle/GoPro_Deblur.pth",
+    "base_checkpoint_sha256": "10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82",
+    "total_parameters": 59079548,
+    "use_both_input": false,
+    "causal_state": {
+      "cache_slots_per_kind": 8,
+      "populated_slots_per_kind": 5,
+      "direct_cache_capacity_frames": [3, 3, 3, 3, 2],
+      "effective_history": "recurrent_full_prefix"
+    }
+  },
+  "data": {
+    "replica_video": {
+      "train_manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/train.jsonl",
+      "relative_path_root": "/srv/szha0669/unblur-slam/causal_video_data",
+      "cli_contract": "--video-root is explicitly required for V/M; no implicit cwd or manifest-parent fallback",
+      "train_manifest_sha256": "bd7caa189374683c8ffd7e8fce83cb62e5f69b73f6048808c4808dc2b4ecd2ba",
+      "eligible_rule": "gap-free sequence length at least 3",
+      "eligible_sequences": 26,
+      "eligible_frames": 96,
+      "validation_manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/val_temporal.jsonl",
+      "validation_manifest_sha256": "1aa8cc7a01b82c7d759c3db70e6c7e796a26d09398f3a1fd1592d787db9f886b",
+      "validation_sequences": 2,
+      "validation_frames": 16,
+      "validation_real_transitions": 14
+    },
+    "paired_single_image_defocus": {
+      "dataset": "DPDD_HuggingFace_mirror_combined_input",
+      "input_variant": "combined_only_not_left_or_right_dual_pixel_views",
+      "decoded_format_contract": "pixel-aligned 1680x1120 RGB 16-bit PNG blur/sharp pairs from a revision-pinned direct HuggingFace repository checkout",
+      "decode_contract": "cv2.IMREAD_UNCHANGED -> uint16 BGR2RGB -> float32 divide by 65535; PIL RGB8 conversion is forbidden",
+      "expected_split_counts": {
+        "train": 350,
+        "validation": 74,
+        "test": 76
+      },
+      "materializer": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/materialize_dpdd_hf_png16.py",
+      "materializer_sha256": "2ab8e1779f6be0b8d0b6b8fd688f7e203cbecb7fdf6ed04a33944f3870bab2bd",
+      "materializer_outputs": ["dataset_manifest.json", "pairs.jsonl", "manifests/train.jsonl", "manifests/validation.jsonl", "SHA256SUMS"],
+      "train_manifest": null,
+      "validation_manifest": null,
+      "test_manifest": null,
+      "canonical_line_schema": "unblur_slam.dpdd_hf_canonical_pair.v1 with name, split, relative defocus, relative sharp, source_sha256, target_sha256",
+      "required_before_gpu": [
+        "record HuggingFace repository identifier and immutable revision",
+        "record license and mirror provenance",
+        "verify exact split counts and zero path/content overlap",
+        "verify every pair has matching decoded dimensions and distinct files",
+        "materialize and pin dataset_manifest.json plus canonical train/validation manifest SHA256 values",
+        "keep test pixel bytes/decodes/metrics unopened until the terminal three-seed decision; filenames/LFS identifiers/sizes and prior limited URL/manifest metadata are already known and the split is not pristine"
+      ],
+      "local_candidate_explicitly_rejected": {
+        "path": "/srv/szha0669/unblur-slam/datasets/real_defocus_blur/defocuscaps",
+        "reason": "34 multiview defocused observations plus downsampled copies and camera geometry; no aligned per-image sharp targets",
+        "may_be_used_as_supervised_pairs": false
+      }
+    },
+    "forbidden_during_training_and_selection": [
+      "DPDD test76 pixel bytes, decodes, or metrics; metadata is explicitly not pristine",
+      "Replica Room2 pixels or metrics",
+      "TUM pose, depth, restoration, mapping, or trajectory metrics"
+    ]
+  },
+  "sampling": {
+    "seeds": [17, 42, 73],
+    "source_schedule": "one joint optimizer step contains DPDD backward first and Replica video backward second",
+    "video_steps_per_seed": 78,
+    "single_image_batches_per_seed": 78,
+    "total_optimizer_steps_per_seed": 78,
+    "video_sampler": {
+      "unit": "one natural gap-free JSONL sequence",
+      "length_range": [3, 8],
+      "passes_over_26_eligible_records": 3,
+      "shuffle": "independent deterministic permutation per seed and pass"
+    },
+    "single_image_sampler": {
+      "batch_size": 5,
+      "draws_per_seed": 390,
+      "shuffle": "one independent deterministic 350-image permutation per seed, then repeat its first 40 names in the same fixed order",
+      "coverage": "all 350 train pairs exactly once plus 40 preregistered repeats; no validation-dependent resampling",
+      "crop_size": 128,
+      "augmentation": "one random crop plus flips/quarter-turn per pair; blur and sharp share the exact transform",
+      "cache_rule": "each image is independent; K=V=None and discarded after its one forward",
+      "two_frame_wrapper": "pair=(current,current); the pinned model has use_both_input=false",
+      "decode": "native RGB16 normalized by 65535 before the shared crop"
+    },
+    "no_batch_may_mix": "pixels or K/V from unrelated Replica sequences or unrelated DPDD images"
+  },
+  "parameter_scopes": {
+    "history": {
+      "prefixes": [
+        "latent.transformer_blocks.0.attn.",
+        "latent.transformer_blocks.10.attn.",
+        "decoder_level3.transformer_blocks.9.attn.",
+        "decoder_level2.transformer_blocks.5.attn.",
+        "decoder_level1.transformer_blocks.1.attn."
+      ],
+      "parameter_tensors": 56,
+      "parameters": 3475994,
+      "video_step_requires_grad": true,
+      "single_image_step_requires_grad": false
+    },
+    "spatial_head": {
+      "prefixes": ["refinement.", "ending."],
+      "architectural_position": "after all eight K/V outputs are produced; cannot write the cached tensors",
+      "parameter_tensors": 30,
+      "parameters": 105283,
+      "video_step_requires_grad": true,
+      "single_image_step_requires_grad": true
+    },
+    "everything_else": {
+      "requires_grad": false
+    },
+    "fail_closed_checks": [
+      "exact parameter names, tensor counts, and scalar counts",
+      "single-image backward produces no history gradients",
+      "one isolated single-image optimizer step leaves every history tensor byte-identical",
+      "video backward reaches at least one history tensor and one spatial-head tensor",
+      "AdamW skips parameters whose gradient is None"
+    ]
+  },
+  "optimization": {
+    "optimizer": "one AdamW with separate history and spatial-head parameter groups",
+    "history_learning_rate": 1e-05,
+    "spatial_head_learning_rate": 1e-05,
+    "history_weight_decay": 0.001,
+    "spatial_head_weight_decay": 0.0001,
+    "betas": [0.9, 0.99],
+    "gradient_clip_norm": 1.0,
+    "amp": true,
+    "grad_scaler": {
+      "init_scale": 1024.0,
+      "growth_interval": 2000,
+      "growth_within_78_steps": false,
+      "overflow_policy": "fail closed before scheduler advance and do not save a checkpoint",
+      "required_terminal_counts": {"attempted": 78, "executed": 78, "skipped": 0}
+    },
+    "scheduler": "cosine over 78 joint optimizer steps, eta_min=1e-7; history sees the same update count and LR trajectory in V and M",
+    "gradient_clipping": "history and spatial head are clipped independently at norm 1.0; DPDD spatial gradients therefore cannot rescale the history gradient norm",
+    "mixed_step_order": [
+      "optimizer.zero_grad",
+      "freeze history and enable spatial head",
+      "DPDD batch5 forward and backward, accumulating spatial-head gradients",
+      "enable history and keep spatial head enabled",
+      "Replica full-sequence forward and backward, accumulating history plus spatial-head gradients",
+      "independent finite checks and norm-1 clipping for history and spatial groups",
+      "one optimizer.step",
+      "one scheduler.step"
+    ],
+    "mixed_step_metadata": "two_backward_one_joint_step",
+    "checkpoint_selection": "fixed terminal only; no validation during training"
+  },
+  "objectives": {
+    "video_step": {
+      "supervision": "frames 1..T-1; frame0 warms causal K/V without direct reconstruction loss",
+      "full_prefix_l1_weight": 1.0,
+      "fft_l1_weight": 0.1,
+      "adjacent_temporal_delta_l1_weight": 0.1,
+      "ordered_vs_shuffled_rank_weight": 1.0,
+      "ordered_vs_shuffled_l1_margin": 0.0001,
+      "shuffle": "cyclic left shift of the same complete strictly-past multiset",
+      "future_frames_used": false
+    },
+    "single_image_step": {
+      "l1_weight": 1.0,
+      "fft_l1_weight": 0.1,
+      "temporal_loss_weight": 0.0,
+      "history_order_loss_weight": 0.0,
+      "reason": "an unrelated single image contains no valid temporal relation"
+    }
+  },
+  "bptt_and_cache": {
+    "replica_video": "full natural sequence BPTT; no K/V detach until one sequence-level backward; reset at record boundary",
+    "dpdd_single_image": "one forward only; K/V hard-reset before the image and output K/V immediately discarded",
+    "cross_source_state": "forbidden",
+    "cross_sample_state": "forbidden"
+  },
+  "ablation_matrix": {
+    "G": "official GoPro checkpoint, no fine-tuning",
+    "V": "Replica video only, history plus spatial head, 78 video steps",
+    "S": "DPDD single image only, spatial head only, 78 batches",
+    "M": "mixed two-backward joint steps, each containing one DPDD batch5 and one Replica video sequence; 78 optimizer steps total",
+    "required_seeds_for_trained_arms": [17, 42, 73],
+    "same_checkpoint_video_controls": [
+      "normal_persistent_kv",
+      "reset_cache_current_only",
+      "repeat_current_same_recurrent_step_count",
+      "replayed_ordered_complete_prefix",
+      "shuffled_complete_strictly_past_prefix_same_multiset"
+    ]
+  },
+  "claim_accounting": {
+    "total_restoration_delta": "M.normal - G.normal",
+    "single_image_spatial_delta": "M.reset - V.reset on the same ordered video frames, plus M - V on DPDD where every pair has reset K/V",
+    "within_checkpoint_past_presence": "arm.normal - arm.reset and arm.normal - arm.repeat_current on steady video frames",
+    "within_checkpoint_order_sensitivity": "arm.normal - arm.shuffled on steady video frames",
+    "learned_history_interaction": "(M.normal - M.reset) - (S.normal - S.reset)",
+    "prohibited_statement": "M.normal - G.normal is a history gain",
+    "history_claim_requires": [
+      "normal-minus-reset PSNR at least 0.05 dB",
+      "normal-minus-repeat-current PSNR at least 0.05 dB",
+      "normal-minus-shuffled PSNR at least 0.05 dB",
+      "learned-history interaction PSNR at least 0.03 dB",
+      "same direction for every preregistered seed and both temporal validation sequences"
+    ]
+  },
+  "evaluation": {
+    "dpdd_validation": {
+      "script": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/evaluate_turtle_single_image_defocus.py",
+      "arms_on_identical_pairs": ["G", "V", "S", "M"],
+      "cache": "hard reset for every pair",
+      "two_frame_wrapper": "pair=(current,current)",
+      "precision": "CUDA FP16",
+      "resolution": "native full-resolution RGB16 normalized by 65535, with deterministic right/bottom padding to multiple of 8 and crop-back",
+      "metrics": ["PSNR", "RGB SSIM", "AlexNet LPIPS", "RGB L1", "synchronized TURTLE-step latency"],
+      "warmup_steps_per_arm": 1,
+      "dataset_binding": "dataset_manifest.json SHA -> canonical_manifests.validation path/SHA/74 -> the exact --manifest file",
+      "checkpoint_identity": "G is byte-pinned official_gopro; V/S/M are distinct mixed-training.v3 checkpoints with exact arm, common seed, 78 attempted/executed updates, zero AMP skips, scaler contract, model/base pins, Replica/DPDD hashes, and paired-sharp/pose/depth flags",
+      "interpretation": "spatial restoration only"
+    },
+    "replica_temporal_validation": {
+      "resolution": "native 1200x680",
+      "steady_frame_index_min": 3,
+      "controls": "all five same-checkpoint arms listed above",
+      "ordered_replay_max_abs": 1e-06
+    },
+    "dpdd_test": "unconditionally rejected by this train-plus-validation exploratory protocol, including non-formal CLI calls and manifest-embedded split=test rows; metadata is not pristine and pixels/decodes/metrics remain unopened",
+    "real_slam": "TUM may be opened only after the restoration/history gates; report as a fixed-schedule downstream diagnostic, never tune on it"
+  },
+  "known_prior_result": {
+    "replica_v2_three_seed_report": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed/multiseed_history_report.json",
+    "eligible": false,
+    "normal_minus_base_psnr_db_mean": 0.006085245670114148,
+    "normal_minus_shuffled_psnr_db_mean": 0.01811359513862006,
+    "history_gain_interaction_psnr_db_mean": 0.00581816034355261,
+    "interpretation": "the official interface uses past state, but Replica-only fine-tuning did not establish additional useful order-sensitive history"
+  },
+  "implementation_pins": {
+    "mixed_trainer_sha256": "f8c44db993ede19169c21b91785b01cfe27eed3f859e5c91851dc8d4995fe9ee",
+    "single_image_evaluator_sha256": "723220e61a19a1d5450a486d0a5a11745488e3df979c324a5bbcc52624b3507b",
+    "mixed_training_test_sha256": "ac04aca257302b43232cc0f2d40af13970d188eecdf29c1e3560ab56ff8ed82d",
+    "single_image_evaluator_test_sha256": "1e6d6e20e01e6678a22d61569396a670c79acd26a130f75dbaa918f311347f85",
+    "lpips": {
+      "torchmetrics_version": "1.9.0",
+      "alexnet_backbone_sha256": "7be5be791159472b1fbf3c69796f7cb30dca7ad8466c2df70058c37116cdee02",
+      "alex_linear_weights_sha256": "df73285e35b22355a2df87cdb6b70b343713b667eddbda73e1977e0c860835c0"
+    }
+  },
+  "gpu_launch_gate": {
+    "authorized": false,
+    "blockers": [
+      "DPDD-HF train/validation PNG16 bytes have not yet been materialized in the audited workspace",
+      "dataset_manifest.json and canonical train/validation SHA256 values therefore remain unknown",
+      "GPU launch requires post-materialization CPU audit and a separate launch authorization"
+    ]
+  }
+}

@@ -42,15 +42,248 @@ sharp_weight_final: False
 sharp_weight_final_value: 2.0
 evssm_checkpoint: "./pretrained/evssm/net_g_latest.pth"
 
+# Optional two-pass input augmentation.  Synthetic observations are always
+# excluded from evaluation. For TUM, frames_csv must contain an unaligned
+# estimated trajectory; using groundtruth.txt is rejected by the preprocessor.
+framecrafter:
+  enabled: false
+  manifest: ""
+  auto_prepare: false
+  # Reuse is permitted only after source RGB-D/model/settings hashes and the
+  # official-backend provenance report all match. run.py rejects test backends.
+  reuse_existing: true
+  # CSV produced from an unaligned first-pass trajectory.  It contains RGB-D
+  # paths, intrinsics and one estimated c2w/w2c per original frame.
+  frames_csv: ""
+  # Alternatively, auto-export frames_csv from a first-pass unaligned full
+  # trajectory. Aligned/GT trajectory keys are rejected by the exporter.
+  trajectory_npz: ""
+  trajectory_key: traj_est_not_align
+  max_rgb_depth_dt: 0.08
+  frame_rate: 32.0
+  planner_json: ""
+  # overlap_blur plans between first-pass DROID tracking anchors using
+  # estimated cameras plus RGB-D visibility; overlap_blur_feature adds an
+  # optional blur-tolerant RANSAC refinement in the ambiguous overlap band.
+  planner_mode: legacy_pose_blur
+  anchor_indices: "" # first-pass video.npz or increasing anchor-index text file
+  only_gap_left: null # optional smoke-test source-index pair
+  only_gap_right: null
+  image_root: ""
+  depth_root: ""
+  pose_convention: c2w
+  pose_source: droid_traj_est_not_align
+  output_dir: ""
+  backend: python_api
+  repo_path: ""
+  checkpoint: ""
+  base_model_dir: ""
+  vram_limit_gb: 20
+  height: 480
+  width: 832
+  resize_mode: stretch
+  inference_steps: 20
+  context_views: 6
+  min_context_views: 3
+  laplacian_threshold: null
+  blur_quantile: 0.30
+  # Legacy pose-gap threshold in the estimated trajectory's own scale.  The
+  # unaligned monocular DROID translation is not assumed to be metric; the
+  # advanced RGB-D PnP path below supplies metric pairwise correction instead.
+  translation_step: 0.08
+  rotation_step_deg: 6.0
+  blur_region_inserts: 1
+  max_inserts_per_gap: 4
+  max_generated_frames: 256
+  target_pair_overlap: 0.65
+  hard_submap_overlap: 0.05
+  overlap_sample_stride: 4
+  include_blurry_regions: true
+  feature_refinement: false
+  feature_detector: orb
+  feature_model: essential
+  feature_ambiguity_low: 0.15
+  feature_ambiguity_high: 0.75
+  feature_overlap_weight: 0.20
+  # Essential-matrix RANSAC has no metric translation scale.  This optional
+  # switch can refine rotation only, and only below the correction/inlier gates.
+  feature_refine_rotation: false
+  feature_min_inlier_ratio: 0.35
+  feature_max_rotation_correction_deg: 12.0
+  # Optional metric RGB-D PnP refinement for ambiguous anchor gaps. It uses
+  # RAW endpoint images/depth only. The complete SE(3) correction is adopted
+  # only after inlier, reprojection, rotation, and translation safety gates.
+  pnp_refinement: false
+  pnp_detector: orb # orb | sift
+  pnp_max_features: 3000
+  pnp_ratio_test: 0.75
+  pnp_mutual_check: true
+  pnp_min_keypoints: 12
+  pnp_min_matches: 8
+  pnp_min_depth: 0.0001
+  pnp_max_depth: 20.0
+  # Set above zero to fail explicitly on endpoints below this sharpness floor.
+  pnp_min_laplacian_variance: 0.0
+  pnp_ambiguity_low: 0.15
+  pnp_ambiguity_high: 0.75
+  pnp_ransac_reprojection_error_px: 3.0
+  pnp_ransac_confidence: 0.999
+  pnp_ransac_iterations: 200
+  pnp_min_inliers: 8
+  pnp_min_inlier_ratio: 0.35
+  pnp_max_reprojection_rmse_px: 2.0
+  pnp_max_rotation_correction_deg: 12.0
+  pnp_max_translation_correction: 0.25
+  # M=6 default: 2 immutable endpoints + 2 local blurry observations +
+  # 2 sharp before/after guides that retain target-frustum overlap.
+  local_blurry_contexts: 2
+  sharp_contexts: 2
+  context_local_radius: 8
+  context_search_radius: 32
+  min_sharp_context_overlap: 0.25
+  context_sharp_quantile: 0.65
+  context_image_mode: raw # raw | evssm | hybrid
+  # In hybrid mode only an actually interior blurry observation is deblurred.
+  # Endpoints and sharp before/after guides remain untouched RAW evidence.
+  hybrid_evssm_roles:
+    - local_blurry_inside
+  # Produced by scripts/precompute_framecrafter_evssm.py. EVSSM is unloaded
+  # before FrameCrafter is loaded, avoiding simultaneous model residency.
+  evssm_metadata: ""
+  evssm_min_confidence: 0.50
+  evssm_min_sharpness_gain: 1.0
+  evssm_min_consistency: 0.70
+  # A global score can hide a collapsed small object (for example telephone
+  # keys). Compare spatially aligned RAW/EVSSM tiles and fall back the whole
+  # conditioning frame when any tile crosses a severe-degradation threshold.
+  evssm_local_gate_enabled: true
+  evssm_local_tile_size: 32
+  evssm_local_tile_stride: 16
+  evssm_local_max_brightness_drop: 0.30
+  evssm_local_min_edge_retention: 0.50
+  evssm_local_min_laplacian_retention: 0.50
+  evssm_local_max_tile_mae: 0.20
+  evssm_local_max_dark_expansion: 0.30
+  evssm_local_dark_luma_threshold: 0.3764705882352941 # 96 / 255
+  evssm_local_min_raw_luma: 0.10
+  evssm_local_min_raw_edge: 0.01
+  evssm_local_min_raw_laplacian: 0.01
+  evssm_fallback: error # pure EVSSM fail-closed; hybrid ablation may use raw
+  # sharp keeps the original semantics. geometry also injects candidates that
+  # pass all RGB-D/photo/reprojection gates but miss the sharpness gate.
+  acceptance_mode: sharp
+  # Ratio, so 1.05 means the generated view must be at least 5% sharper.
+  min_sharpness_gain: 1.05
+  min_depth_coverage: 0.30
+  min_depth_consistency: 0.50
+  depth_abs_tolerance: 0.03
+  depth_rel_tolerance: 0.03
+  max_photometric_error: 0.20
+  max_reprojection_error_px: 2.0
+  min_reprojection_valid_ratio: 0.05
+  allow_missing_depth_gates: false
+  output_depth_scale: 5000.0
+  use_manifest_pose: true
+  # Re-anchor first-pass FrameCrafter poses to the latest preceding original
+  # camera in the second-pass map, avoiding a silent coordinate-gauge mismatch.
+  align_manifest_pose_online: true
+  # Generated RGB-D frames supervise existing geometry by default.  Their
+  # confidence-gated depth is not trusted enough to seed new Gaussians.
+  inject_gaussians: false
+  supervision_weight_min: 0.10
+  supervision_weight_max: 0.30
+  geometry_only_weight_scale: 0.50
+
+# LoopSplat-style partition metadata.  This is disabled by default and does
+# not claim 3DGS registration; it provides safe submap boundaries/checkpoints
+# for a later loop-registration backend.
+submaps:
+  enabled: false
+  min_keyframes: 8
+  max_keyframes: 80
+  translation_threshold: 1.5
+  rotation_threshold_deg: 45.0
+  overlap_keyframes: 5
+  loop_backend: none
+  # Official cvg/ReSplat runs only after a submap is closed. The mapper writes
+  # an immutable latest-8-KF causal snapshot, then a separate pinned Python
+  # process performs official init + 4 recurrent updates. Accepted output is an
+  # atomic native sidecar; it is never injected into the active Unblur map.
+  official_resplat_sidecar:
+    enabled: false
+    mode: sidecar_only
+    context_keyframes: 8
+    queue_capacity: 1
+    # Empty output_root resolves to <scene output>/submaps/official_resplat_sidecars.
+    output_root: ""
+    python_executable: /srv/szha0669/unblur-slam/envs/resplat-official-py312-torch270-cu128/bin/python
+    runner_script: /home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/run_official_resplat_sidecar.py
+    resplat_repo: /srv/szha0669/unblur-slam/external/resplat
+    checkpoint: /srv/szha0669/unblur-slam/pretrained/resplat-official/resplat-small-dl3dv-256x448-view8-548993fe.pth
+    expected_checkpoint_sha256: 548993fede0d9536d2d914cbe51e0ebea0ad6f88c898c909e02127d59bb2be9a
+    model_preset: dl3dv_8v_256x448_small
+    # Actual recurrent states computed. Use 3 for the online ReSplat×3 arm;
+    # the official preset default remains 4 and is recorded separately.
+    refinement_updates: 4
+    # Required when enabled: keep the official environment in its own CUDA
+    # namespace. process_device is relative to CUDA_VISIBLE_DEVICES.
+    cuda_visible_devices: "1"
+    process_device: cuda:0
+    near: 0.01
+    far: 200.0
+    max_runtime_seconds: 30.0
+    final_drain_timeout_seconds: 30.0
+    max_pose_revision_lag: 10000
+    max_pose_translation_drift: 0.05
+    max_pose_rotation_drift_deg: 2.0
+    min_gaussian_count: 1
+    max_gaussian_count: 2000000
+    min_finite_fraction: 1.0
+    max_p95_distance: 50.0
+    max_distance: 200.0
+    max_p95_scale: 5.0
+    max_scale: 25.0
+    max_quaternion_norm_deviation: 0.001
+    active_map_merge: false
+
 deblur:
   open: True
-  # Pluggable frontends: evssm (default), precomputed, causal_torchscript.
+  # Pluggable frontends: evssm (default), precomputed, causal_torchscript,
+  # causal_evssm, turtle_streaming. turtle_streaming uses official TURTLE K/V
+  # cache updates once per input frame; it never recomputes a rolling window.
+  # causal_evssm runs the frozen Unblur-SLAM EVSSM once per frame and applies
+  # a causal temporal adapter trained in the EVSSM domain.
   # The causal model contract is [1,T,3,H,W] -> BCHW or BTCHW.
   frontend: evssm
   precomputed_root: ""
   precomputed_pattern: "{timestamp}.png"
   causal_checkpoint: ""
+  # Must exactly equal model_config.max_history recorded by the export.
   causal_history: 5
+  # Immutable upstream TURTLE/GoPro artifacts. These paths are required only
+  # when frontend=turtle_streaming. run.py verifies the compiled-in Git/config/
+  # architecture/checkpoint hashes and strictly loads the weights on CPU.
+  turtle_repo: ""
+  turtle_config: ""
+  turtle_checkpoint: ""
+  turtle_repo_commit: 7094f4221b64ad0962b4f27ff1b76d788836e804
+  turtle_config_sha256: 123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23
+  # Official GoPro may use this digest. A fine-tuned checkpoint must replace
+  # it with its own full digest and embed the required base/provenance metadata.
+  turtle_checkpoint_sha256: 10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82
+  # fp32 preserves the reviewed reference path. fp16 is an explicit CUDA-only
+  # autocast mode; it keeps checkpoint weights unchanged and returns FP32 RGB.
+  turtle_inference_precision: fp32
+  # A true streaming frontend is updated on every input frame, including
+  # frames rejected by the DROID motion filter.  Replacement is gated by a
+  # minimum Laplacian gain to avoid damaging already-sharp frames.
+  stream_every_frame: true
+  stream_apply_to_tracking: true
+  stream_min_laplacian_gain: 0.02
+  # For causal_evssm, never replace the official single-frame EVSSM result
+  # unless the temporal adapter preserves at least this relative sharpness.
+  stream_min_vs_evssm_gain: 0.0
+  stream_replace_sharp: false
 
   # Multi-resolution kernel sizes (critical for performance)
   ks1: 3   # Stage 1 kernel size
@@ -67,6 +300,35 @@ mapping:
   online_plotting: True # render and save images online
   every_keyframe: 1 # do mapping every X keyframes 
   final_refine_iters: 26000 # iterations of final refinement
+  # LEGACY, DISABLED historical ablation.  This is only a residual-priority
+  # view sampler; it is not cvg/ReSplat and must not be reported as ReSplat.
+  # Official-model experiments use the standalone audited COLMAP bridge and
+  # official checkpoint instead (scripts/export_tum_official_resplat_scene.py
+  # and scripts/run_paired_official_resplat_smoke.py).
+  resplat:
+    enabled: false
+    backend: residual_replay
+    # replace_tail keeps the complete final refinement budget at 26K:
+    # 22K uniform iterations + 4K residual replay.  `extend` instead adds the
+    # replay tail and must be matched by an equally long baseline.
+    budget_mode: replace_tail
+    extra_iters: 4000
+    online_enabled: false
+    online_replay_views: 2
+    uniform_floor: 0.20
+    ema_decay: 0.90
+    residual_weight: 1.0
+    laplacian_weight: 0.25
+    coverage_weight: 0.20
+    novelty_weight: 0.10
+    residual_scale: 0.10
+    laplacian_gap_scale: 0.10
+    min_priority: 0.000001
+    checkpoint_interval: 1000
+    checkpoint_steps: [10000, 20000, 26000]
+    checkpoint_clear_gt_psnr: true
+    save_full_state: true
+    log_csv: false
   eval_before_final_ba: True
   move_points: True # apply transformation on Gaussians to account for loop closure and BA
   BA: False # Bundle Adjustment during 3DGS mapping - not fully implemented, but kept for reference
@@ -105,6 +367,7 @@ mapping:
     lr:
       cam_rot_delta: 0.003
       cam_trans_delta: 0.001
+
   opt_params:
     iterations: 30000
     position_lr_init: 0.00016
@@ -132,6 +395,14 @@ mapping:
   pipeline_params:
     convert_SHs_python: False
     compute_cov3D_python: False
+
+# Evaluation is fail-closed by default: datasets with a published clear-GT
+# protocol must contain the complete protocol.  Short, explicitly bounded
+# functionality runs may opt into prefix_smoke in their local config; those
+# metrics are labelled separately and are never paper-complete scores.
+evaluation:
+  clear_gt_scope: full_paper
+  expected_clear_gt_source_indices: []
 
 tracking:
   pretrained: ./pretrained/droid.pth

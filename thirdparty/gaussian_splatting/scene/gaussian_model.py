@@ -69,6 +69,15 @@ class GaussianModel:
 
         self.isotropic = False
 
+        # Mip-Splatting's 3D smoothing filter is deliberately kept outside the
+        # optimizer: it is a deterministic function of the live Gaussian means
+        # and the currently registered mapping cameras.  Topology changes
+        # invalidate it and the renderer recomputes it before the next use.
+        self.filter_3D = torch.empty((0, 1), device="cuda")
+        self._mip_filter_cameras = ()
+        self._mip_filter_kernel_variance = 0.2
+        self._mip_splatting_enabled = False
+
         # In __init__ of GaussianModel
         if self.config["deblur"]["open"]:
             max_keyframe = self.config["tracking"]["buffer"]
@@ -137,6 +146,115 @@ class GaussianModel:
     @property
     def get_opacity(self):
         return self.opacity_activation(self._opacity)
+
+    def configure_mip_splatting(
+        self, cameras, *, enabled=False, kernel_variance=0.2, refresh=True
+    ):
+        """Register the mapping cameras used by the Mip-Splatting 3D filter."""
+
+        enabled = bool(enabled)
+        kernel_variance = float(kernel_variance)
+        if enabled and (not np.isfinite(kernel_variance) or kernel_variance <= 0.0):
+            raise ValueError("Mip-Splatting kernel variance must be finite and positive")
+        self._mip_splatting_enabled = enabled
+        self._mip_filter_kernel_variance = kernel_variance
+        self._mip_filter_cameras = tuple(cameras)
+        if enabled and not self._mip_filter_cameras:
+            raise ValueError("Mip-Splatting requires at least one mapping camera")
+        if refresh and enabled:
+            self.compute_3D_filter(self._mip_filter_cameras)
+
+    def invalidate_mip_filter(self):
+        self.filter_3D = torch.empty((0, 1), device=self.get_xyz.device)
+
+    @torch.no_grad()
+    def compute_3D_filter(self, cameras=None):
+        """Compute the official Mip-Splatting scene-frequency 3D filter.
+
+        For each Gaussian this uses the closest valid depth over the registered
+        mapping views, divided by the largest focal length.  The 15% image
+        margin and sqrt(0.2) conversion follow the public Mip-Splatting code.
+        """
+
+        cameras = tuple(self._mip_filter_cameras if cameras is None else cameras)
+        if not cameras:
+            raise RuntimeError("cannot compute a Mip-Splatting filter without cameras")
+        xyz = self.get_xyz.detach()
+        if xyz.ndim != 2 or xyz.shape[1] != 3:
+            raise RuntimeError("active Gaussian means must have shape [N,3]")
+        if xyz.shape[0] == 0:
+            self.filter_3D = torch.empty((0, 1), device=xyz.device, dtype=xyz.dtype)
+            return self.filter_3D
+        distance = torch.full(
+            (xyz.shape[0],), torch.inf, device=xyz.device, dtype=xyz.dtype
+        )
+        valid_points = torch.zeros(xyz.shape[0], device=xyz.device, dtype=torch.bool)
+        focal_length = 0.0
+        for camera in cameras:
+            if bool(getattr(camera, "deblur_fail", False)):
+                R, t, _, _ = camera.get_mid_extrinsic()
+            else:
+                R, t = camera.R, camera.T
+            R = torch.as_tensor(R, device=xyz.device, dtype=xyz.dtype)
+            t = torch.as_tensor(t, device=xyz.device, dtype=xyz.dtype)
+            if R.shape != (3, 3) or t.shape != (3,):
+                raise RuntimeError("mapping camera has an invalid world-to-camera pose")
+            xyz_cam = xyz @ R + t.unsqueeze(0)
+            z = xyz_cam[:, 2]
+            safe_z = torch.where(z.abs() > 1e-8, z, torch.ones_like(z))
+            fx = float(camera.fx)
+            fy = float(camera.fy)
+            cx = float(camera.cx)
+            cy = float(camera.cy)
+            width = float(camera.image_width)
+            height = float(camera.image_height)
+            if min(fx, fy, width, height) <= 0.0:
+                raise RuntimeError("mapping camera has invalid intrinsics or image size")
+            x = xyz_cam[:, 0] / safe_z * fx + cx
+            y = xyz_cam[:, 1] / safe_z * fy + cy
+            valid = (
+                (z > 0.2)
+                & (x >= -0.15 * width)
+                & (x <= 1.15 * width)
+                & (y >= -0.15 * height)
+                & (y <= 1.15 * height)
+            )
+            distance[valid] = torch.minimum(distance[valid], z[valid])
+            valid_points |= valid
+            focal_length = max(focal_length, fx, fy)
+        if focal_length <= 0.0 or not bool(valid_points.any()):
+            raise RuntimeError("no active Gaussian is visible to the Mip-Splatting cameras")
+        distance[~valid_points] = distance[valid_points].max()
+        filter_3d = (
+            distance
+            / focal_length
+            * float(self._mip_filter_kernel_variance) ** 0.5
+        ).unsqueeze(1)
+        if not torch.isfinite(filter_3d).all() or bool((filter_3d <= 0).any()):
+            raise RuntimeError("Mip-Splatting produced an invalid 3D filter")
+        self.filter_3D = filter_3d.contiguous()
+        return self.filter_3D
+
+    def _ensure_mip_filter(self):
+        if not self._mip_splatting_enabled:
+            return
+        if self.filter_3D.shape != (self.get_xyz.shape[0], 1):
+            self.compute_3D_filter()
+
+    @property
+    def get_scaling_with_3D_filter(self):
+        self._ensure_mip_filter()
+        return torch.sqrt(torch.square(self.get_scaling) + torch.square(self.filter_3D))
+
+    @property
+    def get_opacity_with_3D_filter(self):
+        self._ensure_mip_filter()
+        scales_square = torch.square(self.get_scaling)
+        filtered_square = scales_square + torch.square(self.filter_3D)
+        coefficient = torch.sqrt(
+            scales_square.prod(dim=1) / filtered_square.prod(dim=1)
+        )
+        return self.get_opacity * coefficient.unsqueeze(1)
 
     def get_covariance(self, scaling_modifier=1):
         return self.covariance_activation(
@@ -306,6 +424,42 @@ class GaussianModel:
         )
         self.extend_from_pcd(
             fused_point_cloud, features, scales, rots, opacities, kf_id
+        )
+
+    def merge_resplat_submap(
+        self,
+        *,
+        means_world,
+        scales_linear,
+        rotations_wxyz_world,
+        harmonics_world,
+        opacities_probability,
+        owner_kf_ids,
+        replace_kf_ids,
+        merge_config=None,
+    ):
+        """Merge a validated, coordinate-converted ReSplat submap.
+
+        Native official-ReSplat tensors must not be passed directly: its NPZ
+        quaternions are source-camera-local ``xyzw`` whereas this model stores
+        world-space ``wxyz``.  The integration layer is responsible for that
+        explicit conversion before calling this optimizer-safe API.
+        """
+
+        from src.refinement.active_map_merge import (
+            merge_resplat_submap_into_active_model,
+        )
+
+        return merge_resplat_submap_into_active_model(
+            self,
+            means_world=means_world,
+            scales_linear=scales_linear,
+            rotations_wxyz_world=rotations_wxyz_world,
+            harmonics_world=harmonics_world,
+            opacities_probability=opacities_probability,
+            owner_kf_ids=owner_kf_ids,
+            replace_kf_ids=replace_kf_ids,
+            merge_config=merge_config,
         )
 
     def training_setup(self, training_args):
@@ -623,6 +777,7 @@ class GaussianModel:
         self.max_radii2D = self.max_radii2D[valid_points_mask]
         self.unique_kfIDs = self.unique_kfIDs[valid_points_mask.cpu()]
         self.n_obs = self.n_obs[valid_points_mask.cpu()]
+        self.invalidate_mip_filter()
 
     def cat_tensors_to_optimizer(self, tensors_dict):
         optimizable_tensors = {}
@@ -695,10 +850,18 @@ class GaussianModel:
         self._opacity = optimizable_tensors["opacity"]
         self._scaling = optimizable_tensors["scaling"]
         self._rotation = optimizable_tensors["rotation"]
+        self.invalidate_mip_filter()
 
-        self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
-        self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
-        self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
+        parameter_device = self.get_xyz.device
+        self.xyz_gradient_accum = torch.zeros(
+            (self.get_xyz.shape[0], 1), device=parameter_device
+        )
+        self.denom = torch.zeros(
+            (self.get_xyz.shape[0], 1), device=parameter_device
+        )
+        self.max_radii2D = torch.zeros(
+            (self.get_xyz.shape[0]), device=parameter_device
+        )
         if new_kf_ids is not None:
             self.unique_kfIDs = torch.cat((self.unique_kfIDs, new_kf_ids)).int()
         # self.n_obs describes how many times the Gaussian has been observed

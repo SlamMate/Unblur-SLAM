@@ -1,0 +1,240 @@
+{
+  "schema": "unblur_slam.offline_resplat_fair_26k.v1",
+  "created_date": "2026-08-23",
+  "status": "cpu_preflight_only_gpu_not_started",
+  "claim_boundary": {
+    "primary_question": "Can a terminal backend reach the ordinary 26K rendering quality with less terminal reconstruction time?",
+    "official_resplat_refines_existing_unblur_map": false,
+    "official_resplat_reads_unblur_gaussian_or_optimizer_state": false,
+    "active_map_merge": false,
+    "single_global_resplat_map": false,
+    "resplat_is_independent_terminal_backend": true,
+    "residual_replay_is_official_resplat": false,
+    "allowed_resplat_label": "official ReSplat chronological 8-view terminal submaps",
+    "forbidden_claims": [
+      "official ReSplat refines the 8K, 12K, or 26K arbitrary Unblur map",
+      "U12 plus ReSplat is one fused map",
+      "residual replay or legacy BPN is official ReSplat",
+      "training-view TUM rendering is novel-view evaluation"
+    ]
+  },
+  "unblur_baseline": {
+    "official_origin": "https://github.com/SlamMate/Unblur-SLAM.git",
+    "commit": "151ca3b3185b7c56beef3eeb0c0c9034feeeb843",
+    "worktree": "/srv/szha0669/unblur-slam/worktrees/offline_resplat_fair_26k_v1",
+    "python": "/srv/szha0669/unblur-slam/env/bin/python",
+    "algorithm": "ordinary Unblur-SLAM Adam final_refine",
+    "seed": 43,
+    "milestones_from_one_trajectory": [8000, 12000, 26000],
+    "independent_restarts_for_milestones": false,
+    "legacy_bpn": false,
+    "residual_replay": false,
+    "online_plotting": false,
+    "pre_final_ba_rendering_pass": false,
+    "measurement_hook": {
+      "algorithm_change": false,
+      "preserves_python_numpy_torch_cuda_rng": true,
+      "excludes_metric_render_and_io_from_optimizer_time": true,
+      "allowed_worktree_paths": {
+        "src/mapper.py": "4605a387a0455262d26141010ffe73b34b70c6172460c29f8447eec3fc7e27c0",
+        "src/offline_fair_benchmark.py": "ea71f1914374b7a771dc47c57a07f8cd78dda0afe2795995404b7411112ac56b",
+        "tests/test_offline_fair_benchmark.py": "0a7f6bb73c02df7ce93b4636bf8f84f75a275aea289275d053551834fc634d88",
+        "configs/local/offline_resplat_fair_26k_v1/freiburg1_desk.yaml": "9e285b0521e739d387fed7c19575cee6827b733a67c6b0100f440f09a0e76ef4",
+        "configs/local/offline_resplat_fair_26k_v1/freiburg2_xyz.yaml": "acc47889a43c3b08500f4fa1f538f7e60092d79d88ccd35bb07f27056254f00b",
+        "configs/local/offline_resplat_fair_26k_v1/freiburg3_office.yaml": "b0505b9619a62e7c94530364d328f2026fe7862b5f77f061fe63b8f209d6bd72"
+      }
+    },
+    "pristine_blob_sha256": {
+      "configs/unblur_slam.yaml": "62772b090dd2f528de1b8e62de7a27302a220b61e100d2f59db4f01d60f4c6b0",
+      "configs/I2slam/i2slam.yaml": "c462a8e074ea9742ea34adfc74bd92a5883c4b212d065be82f5764f96bf311d7",
+      "configs/I2slam/freiburg1_desk.yaml": "253a0b3b1108d14bf2c88281adeb0eddbaf3158e287985b9d5f2a5a6b95e9aa2",
+      "configs/I2slam/freiburg2_xyz.yaml": "18a26819ccced7eff04c6fd0482d18c10a8e77af734d5a8f8129b2bff1e010dc",
+      "configs/I2slam/freiburg3_office.yaml": "0f8c6f93735e6cc6901a78ed352e95451e0b77b79dcee99e0cc76eceb0c744f6",
+      "run.py": "abb43ab81f9db646684ea8c482d8c86a010c5608262dc633492c98373497385d",
+      "src/mapper.py": "24f5fc9e6f63c0143e0a94674fd682c5e034d5cd29fe62b27d619ed3baca4b44",
+      "src/slam.py": "8b117e0040964b725e447de52ba1fc018e938ebfb2a0069e9721fed59b937ccc"
+    }
+  },
+  "official_resplat": {
+    "origin": "https://github.com/cvg/resplat",
+    "repository": "/srv/szha0669/unblur-slam/external/resplat",
+    "commit": "cae7ddc4cdbd80e05e9f5fa00f5ea02c4e9056b1",
+    "python": "/srv/szha0669/unblur-slam/envs/resplat-official-py312-torch270-cu128/bin/python",
+    "preset": "dl3dv_8v_256x448_small",
+    "checkpoint": "/srv/szha0669/unblur-slam/pretrained/resplat-official/resplat-small-dl3dv-256x448-view8-548993fe.pth",
+    "checkpoint_sha256": "548993fede0d9536d2d914cbe51e0ebea0ad6f88c898c909e02127d59bb2be9a",
+    "context_count": 8,
+    "recurrent_updates": 4,
+    "partition": "strict chronological groups of eight; final short group becomes the final eight and may overlap its predecessor",
+    "query_router": "exact context owner first, otherwise nearest source index, lower submap id on ties",
+    "all_frozen_keyframes_covered": true,
+    "target_rgb_used_by_recurrent_update": false,
+    "frozen_metric_reference_artifact_passed_to_model": false,
+    "execution": "sequential submaps with complete process wall time reported",
+    "peak_memory_execution": "one submap resident at a time",
+    "runner": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/run_paired_official_resplat_smoke.py",
+    "runner_sha256": "f9b40b8324fa044251056bbf3dfd40f17b77146f2a26a553d038510326a55c6e"
+  },
+  "execution_hardware": {
+    "gpu": {
+      "physical_index": 1,
+      "visible_devices": "1",
+      "logical_device": "cuda:0",
+      "name": "NVIDIA RTX A6000",
+      "uuid": "GPU-3501b285-78cd-1494-87f1-ccac2136866e",
+      "serial": "1711224002341"
+    },
+    "exclusive_lock": "/srv/szha0669/unblur-slam/locks/physical_gpu1.lock",
+    "all_gpu_jobs_serial": true
+  },
+  "assets": {
+    "dataset_root": "/srv/szha0669/unblur-slam/datasets/TUM_RGBD",
+    "output_root": "/srv/szha0669/unblur-slam/offline_resplat_fair_26k_v1",
+    "temporary_root": "/srv/szha0669/unblur-slam/.tmp/offline_resplat_fair_26k_v1",
+    "gpu_lock": "/srv/szha0669/unblur-slam/locks/physical_gpu1.lock",
+    "evssm_checkpoint": {
+      "path": "/srv/szha0669/unblur-slam/pretrained/net_g_latest_batch_8_no_NYU.pth",
+      "sha256": "4c18cd0c783b88e0c4efb8afb60642afed6bdc682cb076bcdd8c358e3c565b41"
+    },
+    "droid_checkpoint": {
+      "path": "/srv/szha0669/unblur-slam/pretrained/droid.pth",
+      "sha256": "46476ef64cde45a97504910d6f3de2eef7b398ec1c6e4e668815c29076024526"
+    },
+    "omnidata_checkpoint": {
+      "path": "/srv/szha0669/unblur-slam/pretrained/omnidata_dpt_depth_v2.ckpt",
+      "sha256": "a0fab23fee64aa9e4bbe0b520b18b196ea7594a7f719c1d8c10cf11dcb6e4a1e"
+    }
+  },
+  "protocol_tooling": {
+    "materialize_frozen_bundle": {
+      "path": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/materialize_offline_resplat_frozen_bundle.py",
+      "sha256": "4484e530a307071dbe3c61a39aef2e1b3efc25f2ac36fa3f3f894c700ed2e255"
+    },
+    "scene_exporter": {
+      "path": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/export_tum_official_resplat_scene.py",
+      "sha256": "0cbc437009d25372911d223811e6aa5add73af9c3232b0dd0dd6e19f806d676a"
+    },
+    "common_rgb_evaluator": {
+      "path": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/evaluate_offline_fair_common_rgb.py",
+      "sha256": "af60e4c080a01050f0db8b3973e4d9505f4b64da96b4dc464652c73a1d302552"
+    },
+    "sequential_wall_executor": {
+      "path": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/execute_offline_resplat_plan.py",
+      "sha256": "40aa24e39d7ef0dd305c92e03fd9d6ed9970abe017d23525fc9ba417cdb2aa27"
+    },
+    "cpu_preflight": {
+      "path": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/preflight_offline_resplat_fair_26k.py",
+      "sha256": "d0e996a17bb5388defbfb2011f106d86b816b2bbf7209edfc264368c8553facb"
+    },
+    "gpu_contract": {
+      "path": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/offline_fair_gpu_contract.py",
+      "sha256": "872d721183f9d678f24aa2d820bf122306edf9358e7cca8441f85b8527f1a1de"
+    },
+    "pinned_gpu_wrapper": {
+      "path": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/execute_pinned_gpu_command.py",
+      "sha256": "af26f236025ff9b8ab8944fb9b2f96c00c20effd5f35e8ba937c542cf56b19b1"
+    },
+    "final_reporter": {
+      "path": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/scripts/report_offline_resplat_fair_26k.py",
+      "sha256": "35c55eefafe3ae30d2bea611366298c2ebb27a969190d2877c9348e9a8b9e2de"
+    },
+    "runbook": {
+      "path": "/home/szha0669/Unblur-SLAM-framecrafter-resplat/configs/local/offline_resplat_fair_26k_v1/RUNBOOK.md",
+      "sha256": "67beecc1f661a2a2273f3ccc1d18d2e26b3dd27c827a359d145cc27c574a4c23"
+    }
+  },
+  "scenes": [
+    {
+      "name": "freiburg1_desk",
+      "config": "configs/local/offline_resplat_fair_26k_v1/freiburg1_desk.yaml",
+      "input_folder": "rgbd_dataset_freiburg1_desk",
+      "eval_indices_file": "scripts/fr1_desk_indices_sharp.txt",
+      "eval_indices_sha256": "5c30b8228561b29dc6d59e220d9cd42b5ed7ac0302aea2206b193a5e32d6cb10",
+      "eval_count": 14,
+      "expected_keyframe_count": 89,
+      "expected_resplat_submaps": 12
+    },
+    {
+      "name": "freiburg2_xyz",
+      "config": "configs/local/offline_resplat_fair_26k_v1/freiburg2_xyz.yaml",
+      "input_folder": "rgbd_dataset_freiburg2_xyz",
+      "eval_indices_file": "scripts/fr2_xyz_indices_sharp.txt",
+      "eval_indices_sha256": "492f657623c2856b998a4b6031f53a09855266957192b1dd5c60ea7b0471fd71",
+      "eval_count": 42,
+      "expected_keyframe_count": 42,
+      "expected_resplat_submaps": 6
+    },
+    {
+      "name": "freiburg3_office",
+      "config": "configs/local/offline_resplat_fair_26k_v1/freiburg3_office.yaml",
+      "input_folder": "rgbd_dataset_freiburg3_long_office_household",
+      "eval_indices_file": "scripts/fr3_office_indices_sharp.txt",
+      "eval_indices_sha256": "695df4fbd2df67302abbf0fb8abbbd21bd112382146e5b60db8d5383a7921a99",
+      "eval_count": 57,
+      "expected_keyframe_count": 153,
+      "expected_resplat_submaps": 20
+    }
+  ],
+  "reporting": {
+    "unblur_arms": ["U8", "U12", "U26"],
+    "resplat_arm": "R4-multisubmap",
+    "combined_U_plus_R_arm": null,
+    "primary_scope": "I2-SLAM annotated mapped-training-view rendering at common 320x448",
+    "rgb_evaluation": {
+      "resolution_hw": [320, 448],
+      "resize": "official cvg/ReSplat PIL Lanczos",
+      "metric_implementation": "official cvg/ReSplat PSNR, SSIM, LPIPS",
+      "prediction_source": "saved quantized PNG for every arm",
+      "reference_source": "separately frozen frame_reader metric reference selected only by preregistered source index"
+    },
+    "metrics": ["PSNR", "SSIM", "LPIPS", "terminal wall seconds", "peak allocated GPU bytes"],
+    "depth_l1": {
+      "formal_gate_available": false,
+      "reason": "R4 does not yet emit an audited raw metric-depth artifact in this protocol"
+    },
+    "query_scope": {
+      "all_formal_queries_are_context": true,
+      "mapped_training_views": true,
+      "novel_views": false,
+      "non_context_stratum_available": false
+    },
+    "png_quantization": "official_resplat_mul255_astype_uint8_floor",
+    "primary_timing": {
+      "unblur": "ordinary Adam iteration 1 through milestone, synchronized, cumulative",
+      "resplat": "per fresh submap: repository/checkpoint verification, model load, preprocess, initializer, four updates, query rendering",
+      "resplat_wall_scope": "terminal_backend_setup_plus_core_no_metrics_or_artifact_io",
+      "resplat_peak_scope": "process_setup_plus_core_before_metrics_and_artifact_io",
+      "excludes": ["online tracking/mapping shared prefix", "metric-reference loading", "metric computation", "output PNG/PLY artifact I/O"]
+    },
+    "secondary_timing": "R4 fresh full subprocess wall including startup, metrics, and artifact I/O; reported but never used for the primary speedup claim",
+    "aggregate_weighting": "pooled_per_evaluation_view_across_three_scenes",
+    "aggregate_eval_count": 113,
+    "expected_total_resplat_submaps": 38,
+    "noninferiority": {
+      "psnr_drop_db_max": 0.1,
+      "ssim_drop_max": 0.005,
+      "lpips_increase_max": 0.005
+    },
+    "speedup_claim_requires": [
+      "one deployable terminal renderer, not a post-hoc oracle across U and R",
+      "all three scenes complete",
+      "all metric gates pass per scene and in the aggregate",
+      "terminal wall time is lower than U26"
+    ]
+  },
+  "planning_estimate": {
+    "historical_not_baseline_evidence": true,
+    "U26_optimizer_seconds": {
+      "freiburg1_desk": [900, 1250],
+      "freiburg2_xyz": [330, 420],
+      "freiburg3_office": [1500, 2400]
+    },
+    "U8_fraction_of_U26": 0.3077,
+    "U12_fraction_of_U26": 0.4615,
+    "R4_core_seconds_per_submap_observed": [1.3, 1.5],
+    "R4_full_process_seconds_per_submap_expected": [5, 8],
+    "R4_peak_allocated_gib_observed": 5.1,
+    "recommended_gpu_memory_gib": 48,
+    "minimum_free_srv_gib": 100
+  }
+}

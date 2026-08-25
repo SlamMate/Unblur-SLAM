@@ -1,0 +1,14 @@
+# Revision v2 fixes the regular-mapping hook binding: the newly mapped camera
+# is captured before the optimizer pose-window loop rebinds `viewpoint`.
+# All scientific settings inherit unchanged from the preregistered v1 pair.
+inherit_from: ../fr2_xyz_fixed_kf_resplat3_fusion_221/common.yaml
+
+fixed_kf_resplat3_active_fusion_221:
+  schema: unblur_slam.fr2_xyz_fixed_kf_resplat3_active_fusion_221.v2
+  experiment_revision: v2
+  supersedes_v1_mapper_hook_binding_bug: true
+  mapped_viewpoint_binding_contract: captured_before_pose_window_loop
+  v1_output_preserved_and_not_reused: true
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_fixed_kf_resplat3_fusion_221_v2/_common_do_not_run

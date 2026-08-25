@@ -1,0 +1,15 @@
+# Not part of the four-arm replay smoke until a real, exported causal model is
+# supplied.  run.py intentionally fails closed if this placeholder is used.
+inherit_from: ./offline_online_replay.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_resplat/causal_frontend
+
+deblur:
+  frontend: causal_torchscript
+  causal_checkpoint: /ABS/causal_video_deblur.pt
+  causal_history: 5
+  stream_every_frame: true
+  stream_apply_to_tracking: true
+  stream_replace_sharp: false
+  stream_min_laplacian_gain: 0.02

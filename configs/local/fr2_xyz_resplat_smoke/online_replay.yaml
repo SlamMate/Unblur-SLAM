@@ -1,0 +1,12 @@
+inherit_from: ./common.yaml
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_smoke/fr2_xyz_resplat/online_replay
+
+mapping:
+  resplat:
+    enabled: true
+    online_enabled: true
+    # Zero offline replay iterations isolates online background-view replay;
+    # final refinement remains 400 uniform iterations.
+    extra_iters: 0

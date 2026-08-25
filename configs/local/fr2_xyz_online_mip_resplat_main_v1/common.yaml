@@ -1,0 +1,26 @@
+# Main bounded online experiment: baseline vs full Mip-Splatting vs
+# Mip-Splatting plus the existing fail-closed official-ReSplat state3 trial.
+# The three arms share the same frozen 11-keyframe schedule and optimizer budget.
+inherit_from: ../fr2_xyz_fixed_kf_resplat3_fusion_221_v2/common.yaml
+
+online_mip_resplat_main:
+  schema: unblur_slam.fr2_xyz_online_mip_resplat_main.v1
+  source_prefix_frames: 221
+  frozen_source_keyframes: [0, 9, 15, 49, 58, 72, 89, 109, 125, 166, 220]
+  comparison_arms: [baseline, mip_splatting, mip_splatting_plus_safe_resplat]
+  mip_definition: 3d_scene_frequency_filter_plus_2d_antialiasing
+  mip_filter_kernel_variance: 0.2
+  resplat_policy: original_postmerge_gate_with_byte_exact_rollback
+  unsafe_forced_commit: false
+  paper_table6_comparable: false
+  complete_tum_benchmark: false
+
+mapping:
+  mip_splatting:
+    enabled: false
+    filter_kernel_variance: 0.2
+  official_resplat_active_fusion:
+    enabled: false
+
+data:
+  output: /srv/szha0669/unblur-slam/slam_paired/fr2_xyz_online_mip_resplat_main_v1/_common_do_not_run

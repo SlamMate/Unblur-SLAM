@@ -1,0 +1,154 @@
+{
+  "schema": "unblur_slam.turtle_replica_temporal_order_multiseed.v2",
+  "status": "preregistered_before_gpu_training",
+  "created_date": "2026-08-22",
+  "scope": "short_budget_exploratory_smoke_not_paper_metric",
+  "objective": "Test whether an explicit past-order-sensitive objective makes the official causal TURTLE K/V history useful on ReplicaBlurry before any Room2 frame-pixel or metric access.",
+  "model": {
+    "name": "official_TURTLE_Turtle_t1",
+    "repo": "/srv/szha0669/unblur-slam/external/TURTLE",
+    "repo_commit": "7094f4221b64ad0962b4f27ff1b76d788836e804",
+    "architecture_sha256": "4d19c676f92574dbad493eb591312fdeaf2b3b519f57410af2ed95fdbef5f058",
+    "config_sha256": "123b07de8d3f329769562e2f943e08fdf86c576c405634bad199ced95b25aa23",
+    "base_checkpoint": "/srv/szha0669/unblur-slam/pretrained/turtle/GoPro_Deblur.pth",
+    "base_checkpoint_sha256": "10334b3e81d0416bcde5ccaca960dc81dbfb5b6d23e53fadaf7896d72b580c82",
+    "input_domain": "raw_blurry_rgb_0_1",
+    "causal_state": {
+      "cache_slots_per_kind": 8,
+      "populated_slots_per_kind": 5,
+      "direct_cache_capacity_frames": [3, 3, 3, 3, 2],
+      "effective_history": "recurrent_full_prefix",
+      "use_both_input": false
+    }
+  },
+  "data": {
+    "root": "/srv/szha0669/unblur-slam/causal_video_data",
+    "train_manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/train.jsonl",
+    "train_manifest_sha256": "bd7caa189374683c8ffd7e8fce83cb62e5f69b73f6048808c4808dc2b4ecd2ba",
+    "train_inventory": {
+      "all_sequences": 127,
+      "all_frames": 234,
+      "eligible_min_length_3_sequences": 26,
+      "eligible_min_length_3_frames": 96
+    },
+    "validation_manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/val_temporal.jsonl",
+    "validation_manifest_sha256": "1aa8cc7a01b82c7d759c3db70e6c7e796a26d09398f3a1fd1592d787db9f886b",
+    "validation_inventory": {
+      "sequences": 2,
+      "frames": 16,
+      "real_transitions": 14,
+      "steady_frame_index_min": 3,
+      "steady_frames": 10
+    }
+  },
+  "protocol": {
+    "future_frames_used": false,
+    "selection_data": "train_room1_and_temporal_validation_room1_only",
+    "room2_frame_pixels_read_before_validation_pass": false,
+    "room2_metrics_evaluated_before_validation_pass": false,
+    "room2_manifest_bytes_already_read": true,
+    "room2_manifest_disclosure": "test_room2.jsonl bytes were known previously and were rehashed during this v2 audit; therefore Room2 is not claimed as a pristine manifest-sealed holdout",
+    "room2_after_pass": "one-shot diagnostic only; no tuning after open",
+    "checkpoint_selection": "fixed_terminal_only_no_validation_during_training",
+    "seed_eligibility": "every preregistered seed must pass every unchanged history gate"
+  },
+  "training": {
+    "seeds": [17, 42, 73],
+    "fixed_terminal_optimizer_steps": 78,
+    "passes_over_eligible_records": 3,
+    "validation_during_training": false,
+    "trainable_scope": "five_official_history_attention_modules_only",
+    "trainable_parameter_tensors": 56,
+    "trainable_parameters": 3475994,
+    "total_model_parameters": 59079548,
+    "minimum_sequence_length": 3,
+    "bptt": "full_jsonl_sequence_no_cache_detach_until_one_sequence_backward",
+    "loss_start_frame": 1,
+    "crop_size": 128,
+    "augmentation": "one_shared_random_crop_flip_rotation_per_sequence",
+    "objective": {
+      "name": "EVSSM_style_paired_objective_not_exact_EVSSM_hyperparameter_reproduction",
+      "l1_weight": 1.0,
+      "fft_l1_weight": 0.1,
+      "fft_normalization": "torch_fft_default_backward_unnormalized"
+    },
+    "temporal_order_objective": {
+      "temporal_delta_l1_weight": 0.1,
+      "ordered_vs_shuffled_rank_weight": 1.0,
+      "ordered_vs_shuffled_l1_margin": 0.0001,
+      "anchor_policy": "last_supervised_frame",
+      "shuffle_policy": "cyclic_left_shift_complete_past_prefix",
+      "past_multiset_preserved": true,
+      "future_frames_used": false
+    },
+    "optimizer": {
+      "name": "AdamW",
+      "learning_rate": 0.00001,
+      "weight_decay": 0.001,
+      "betas": [0.9, 0.9],
+      "scheduler": "CosineAnnealingLR",
+      "eta_min": 1e-7,
+      "gradient_clip": 1.0,
+      "amp": true
+    }
+  },
+  "evaluation": {
+    "resolution": "native_1200x680",
+    "checkpoint_rule": "fixed_terminal_only",
+    "arms": [
+      "normal_persistent_kv",
+      "reset_cache_current_only",
+      "repeat_current_same_recurrent_step_count",
+      "replayed_ordered_complete_prefix_contract",
+      "shuffled_complete_past_prefix_only"
+    ],
+    "same_checkpoint_same_frames": true,
+    "future_frames_used": false,
+    "eligibility_gates": {
+      "ordered_replay_max_abs_max": 0.000001,
+      "finetuned_normal_minus_base_normal_psnr_db_min": -0.05,
+      "finetuned_normal_minus_base_normal_ssim_min": -0.001,
+      "finetuned_normal_minus_reset_cache_psnr_db_min": 0.05,
+      "finetuned_normal_minus_repeat_current_psnr_db_min": 0.05,
+      "finetuned_normal_minus_shuffled_history_psnr_db_min": 0.05,
+      "history_gain_interaction_vs_base_reset_psnr_db_min": 0.03,
+      "finetuned_normal_vs_reset_temporal_error_relative_max": -0.01,
+      "both_validation_sequences_psnr_direction_positive": true
+    },
+    "on_failure": "report all seed outcomes, keep official GoPro deployment, keep Room2 frame pixels and metrics unopened, and do not launch metric-bearing SLAM",
+    "on_pass": "freeze all artifacts, then permit one Room2 diagnostic and the existing TUM metric-bearing SLAM smoke without further tuning"
+  },
+  "artifacts": {
+    "base_metrics": {
+      "path": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_gopro_history_smoke_seed42_v1/base_gopro_val_temporal_fullres/metrics.json",
+      "sha256": "ba89e9ed3459e84eec28f8c6fce298a5d0f73d2de901a8750c9e7c12139363c0"
+    },
+    "output_root": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed",
+    "report": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed/multiseed_history_report.json"
+  },
+  "runs": {
+    "17": {
+      "checkpoint": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed/seed17/finetuned_final.pth",
+      "metrics": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed/seed17/val_temporal_fullres/metrics.json",
+      "metrics_sha256": null
+    },
+    "42": {
+      "checkpoint": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed/seed42/finetuned_final.pth",
+      "metrics": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed/seed42/val_temporal_fullres/metrics.json",
+      "metrics_sha256": null
+    },
+    "73": {
+      "checkpoint": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed/seed73/finetuned_final.pth",
+      "metrics": "/srv/szha0669/unblur-slam/turtle_finetune/replica424_temporal_order_v2_multiseed/seed73/val_temporal_fullres/metrics.json",
+      "metrics_sha256": null
+    }
+  },
+  "implementation_pins": {
+    "train_script_sha256": "2379e91cc338e51ffc843c74e3b28d0460b84b4f1dab562320b9557aa1e1bd1c",
+    "evaluate_script_sha256": "9031fbf168e83a0164a3434aa560064cdb6ba3b1570b0fc14c6218fd87298569",
+    "report_script_sha256": "8c88bf60ddfc227e68c6379f5f90088967c0412fd15d2e10e2c7b7e1ea10bd32",
+    "test_sha256": "53aeecc849e65eaa1453c341b9ad558a0485e1046ac6e1bcedf172c63f554cc4",
+    "report_test_sha256": "75d1cab1b5e6838c75b35193953b831d1ec206cd2dff39254b8f85069e80884b",
+    "backend_sha256": "a2dee19a1017d5450714cf4e9c729cd32974d2f5237a783534740f5cccf6d6dd"
+  }
+}

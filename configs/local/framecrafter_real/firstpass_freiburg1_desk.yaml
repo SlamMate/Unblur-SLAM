@@ -1,0 +1,25 @@
+inherit_from: ./configs/I2slam/freiburg1_desk.yaml
+
+device: cuda:0
+fake_sharp: false
+sharp_judge: false
+exam_blur_score: false
+adjust_cam: false
+verbose: false
+
+deblur:
+  stream_replace_sharp: true
+
+data:
+  dataset_root: /srv/szha0669/unblur-slam/datasets/TUM_RGBD
+  output: /srv/szha0669/unblur-slam/framecrafter_firstpass
+
+tracking:
+  pretrained: /srv/szha0669/unblur-slam/pretrained/droid.pth
+
+mono_prior:
+  depth_pretrained: /srv/szha0669/unblur-slam/pretrained/omnidata_dpt_depth_v2.ckpt
+
+mapping:
+  eval_before_final_ba: false
+  online_plotting: false

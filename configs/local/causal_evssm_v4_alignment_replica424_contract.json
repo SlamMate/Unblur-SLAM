@@ -1,0 +1,335 @@
+{
+  "schema": "unblur_slam.causal_evssm_alignment_replica424_experiment.v4",
+  "registered_before_training": true,
+  "registered_date": "2026-08-21",
+  "purpose": "Test whether explicit strictly-causal feature alignment makes history useful while preserving the official Unblur-SLAM EVSSM baseline and the pre-registered v3 scientific gates.",
+  "teacher": {
+    "kind": "official_unblur_slam_evssm",
+    "checkpoint": "/srv/szha0669/unblur-slam/pretrained/net_g_latest_batch_8_no_NYU.pth",
+    "checkpoint_sha256": "4c18cd0c783b88e0c4efb8afb60642afed6bdc682cb076bcdd8c358e3c565b41",
+    "gopro_or_turtle_allowed": false
+  },
+  "warm_start": {
+    "schema": "unblur_slam.causal_video_deblur.warm_start.v4",
+    "kind": "exact_v3_h3_epoch20_model_weights_only",
+    "checkpoint": "/srv/szha0669/unblur-slam/causal_video_runs/replica424_evssm_v3_h3_seed42/epoch_0020.pth",
+    "checkpoint_sha256": "8338d007762d9e626bd7f85722140a70ff0084e58f1bbe8dfd338daca346b0e4",
+    "logical_model_state_sha256": "8975d77492d2833f0b9e34e1517a26ba2000cbbe9cb0ccdee1d911c5a69cd1e2",
+    "source_format": "unblur_slam.causal_video_deblur.v3",
+    "source_optimizer_step": 600,
+    "load_model_weights": true,
+    "load_optimizer_state": false,
+    "load_scheduler_state": false,
+    "fresh_optimizer_required": true,
+    "other_warm_starts_forbidden": true
+  },
+  "data": {
+    "root": "/srv/szha0669/unblur-slam/causal_video_data",
+    "train": {
+      "manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/train.jsonl",
+      "sha256": "bd7caa189374683c8ffd7e8fce83cb62e5f69b73f6048808c4808dc2b4ecd2ba",
+      "pairs": 234,
+      "clips": 234,
+      "sequences": 127,
+      "unique_real_adjacent_edges": 107,
+      "role": "optimization",
+      "phase1_sampler": "only clips containing at least one real adjacent edge; repeated-prefix-only clips are forbidden",
+      "evssm_precompute_report": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/evssm_train/precompute_report.json",
+      "evssm_precompute_report_sha256": "9fad0d8c90e64fc5ef471bef85c374b5a09393f33ca16fb3dabb5a1bb206a3e0",
+      "evssm_manifest_sha256": "1e1f9ab0d28ec3d7f391c9d4bcb6184ea275829af3fc824c7e42195bbba1f24e"
+    },
+    "temporal_validation": {
+      "manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/val_temporal.jsonl",
+      "sha256": "1aa8cc7a01b82c7d759c3db70e6c7e796a26d09398f3a1fd1592d787db9f886b",
+      "frame_identity_schema": "sorted_compact_json_sequence_index_blurry_sharp.v1",
+      "frame_identity_sha256": "766c3e4fe79ef88b50ac047e7e0048e1221a73e6913c1ba3f6ac7762dbc84a67",
+      "pairs": 16,
+      "sequences": 2,
+      "real_adjacent_transitions": 14,
+      "role": "the only split allowed for checkpoint, history, and alignment selection",
+      "evssm_precompute_report": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/evssm_val_temporal/precompute_report.json",
+      "evssm_precompute_report_sha256": "2a394089ead9b6ef069fab1885b20d11805b90b83d32f3cbd180fd4490cd8d4a",
+      "evssm_manifest_sha256": "b9f2b86a18705bb427799fc1823491cf7dd6f9a7e3c54af9889a09fe1073e6fc"
+    },
+    "room2_test": {
+      "manifest": "/srv/szha0669/unblur-slam/causal_video_data/replica424_v1/manifests/test_room2.jsonl",
+      "source_root": "/srv/szha0669/unblur-slam/causal_video_data",
+      "sha256": "49464ac272a747675923ad28f5a659b2413a0975818af7bb35de39a90eaa1ba8",
+      "frame_identity_schema": "sorted_compact_json_sequence_index_blurry_sharp.v1",
+      "frame_identity_sha256": "b9438030e9c7bc06179db662d60738e15a30d48e3f45c1b1aa1ae3451c1a3861",
+      "pairs": 174,
+      "role": "scene-disjoint locked one-shot test; inaccessible until Layer1 passes; no tuning after opening"
+    },
+    "validation_report_sha256": "0fb570208646b35e33bb230c882e172fa5b72109ad4d8ab769be3575b97e6b52",
+    "split_ranges_sha256": "bb280670a4dff2ba5a19cefac6f8c978f2bd869a160a902cbabd8aa17282db52",
+    "source_inventory_sha256": "3a1171deb9a034df81aa5adffb78b3de1dcc012feb0076149668007e3edcaadb"
+  },
+  "model": {
+    "history": 3,
+    "channels": 32,
+    "heads": 4,
+    "blocks": 2,
+    "input_domain": "evssm",
+    "max_residual": 0.03137254901960784,
+    "causality": "strict_upper_triangular_temporal_attention_and_pairwise_previous_to_current_alignment",
+    "motion_alignment": {
+      "mode": "coarse_local_correlation_v1",
+      "feature_resolution": "one_quarter_input",
+      "matching_resolution": "one_eighth_input",
+      "flow_convention": "current_to_previous_sampling_dx_dy",
+      "match_channels": 16,
+      "radius_at_one_eighth": 8,
+      "temperature": 0.05,
+      "max_component_quarter_pixels": 16.0,
+      "max_component_input_pixels": 64.0,
+      "warp_padding": "border",
+      "confidence": "normalized_inverse_correlation_entropy_in_0_1",
+      "future_frames_forbidden": true
+    }
+  },
+  "optimization": {
+    "schema": "unblur_slam.causal_video_deblur.optimization.v4",
+    "optimizer": "AdamW",
+    "fresh_optimizer": true,
+    "weight_decay": 0.001,
+    "gradient_clip": 1.0,
+    "crop_size": 192,
+    "batch_size": 4,
+    "num_workers": 0,
+    "gradient_accumulation": 2,
+    "gradient_accumulation_micro_batches": 2,
+    "effective_batch_size": 8,
+    "drop_last": true,
+    "alignment_loader_clips_per_epoch": 104,
+    "alignment_loader_dropped_clips_per_epoch": 3,
+    "alignment_micro_batches_per_epoch": 26,
+    "joint_loader_clips_per_epoch": 232,
+    "joint_loader_dropped_clips_per_epoch": 2,
+    "joint_micro_batches_per_epoch": 58,
+    "drop_incomplete_accumulation_group": false,
+    "loader_generator_seeds": {
+      "joint": 1042,
+      "alignment_only": 2042
+    },
+    "resume_boundary": "epoch_end_no_pending_accumulation",
+    "resume_rng_state": "python_numpy_torch_cpu_and_both_loader_generators",
+    "execution_device": "cpu",
+    "amp_requested": false,
+    "amp_effective": false,
+    "seed": 42,
+    "total_optimizer_steps": 600,
+    "alignment_only_steps": 100,
+    "joint_steps": 500,
+    "alignment_learning_rate": 0.0002,
+    "joint_base_learning_rate": 0.00002,
+    "optimizer_reset_at_phase_boundary": false,
+    "optimizer_state_from_v3_loaded": false,
+    "phases": [
+      {
+        "name": "alignment_only",
+        "optimizer_steps": 100,
+        "start_step_inclusive": 0,
+        "end_step_exclusive": 100,
+        "base_trainable": false,
+        "trainable_parameters": [
+          "motion_aligner.match_projection.weight"
+        ],
+        "alignment_lr": 0.0002,
+        "base_lr": 0.0
+      },
+      {
+        "name": "joint",
+        "optimizer_steps": 500,
+        "start_step_inclusive": 100,
+        "end_step_exclusive": 600,
+        "base_trainable": true,
+        "trainable_parameters": [
+          "base_parameters",
+          "motion_aligner.match_projection.weight",
+          "motion_alignment_gate"
+        ],
+        "alignment_lr": 0.0002,
+        "base_lr": 0.00002
+      }
+    ]
+  },
+  "training": {
+    "schema": "unblur_slam.causal_video_deblur.training.v4",
+    "history": 3,
+    "training_clip_length": 4,
+    "rolling_window_length": 3,
+    "stream_prefix_padding": "repeat_first_frame_on_left",
+    "dropped_tail_policy": "shuffle_then_drop_incomplete_microbatch_each_epoch",
+    "terminal_checkpoint_policy": "unconditional_atomic_save_at_exact_optimizer_step_600_before_exit",
+    "resume_rng_policy": "epoch_boundary_python_numpy_torch_cpu_and_loader_generators",
+    "causality": "strict upper-triangular attention plus pairwise previous/current alignment; no future feature may enter flow, confidence, warp, fusion, or output",
+    "transition_accounting": {
+      "real_transition_slots_required": true,
+      "unique_transition_count_required": 107,
+      "train_clip_count_required": 234,
+      "train_sequence_count_required": 127,
+      "repeated_prefix_transitions_excluded": true,
+      "alignment_only_sampler_requires_real_edge": true
+    },
+    "diagnostic_method": "forward_sequence_with_motion_diagnostics",
+    "alignment_disabled_method": "forward_sequence_alignment_disabled"
+  },
+  "objective": {
+    "schema": "unblur_slam.causal_video_deblur.objective.v4",
+    "primary_reconstruction": {
+      "frames": "latest_only",
+      "l1_weight": 1.0,
+      "fft_l1_weight": 0.1,
+      "fft_normalization": "ortho",
+      "phase": "joint_only"
+    },
+    "evssm_fidelity": {
+      "frames": "all_causal_prefix_positions",
+      "loss": "l1",
+      "weight": 0.1,
+      "phase": "joint_only"
+    },
+    "motion_alignment": {
+      "flow_direction": "current_to_previous",
+      "flow_units": "quarter_resolution_pixels",
+      "real_transitions_only": true,
+      "padding_transition_policy": "excluded_by_transition_valid",
+      "photometric_weight": 1.0,
+      "gradient_weight": 0.2,
+      "smooth_weight": 0.01,
+      "joint_phase_scale": 0.05,
+      "confidence_weighted": false,
+      "phase": "alignment_only_unscaled_and_joint_scaled"
+    },
+    "temporal_delta": {
+      "frames": "two_shifted_full_history_windows",
+      "reference": "motion_compensated_sharp_gt_difference",
+      "loss": "l1",
+      "weight": 0.05,
+      "detached_flow": true,
+      "flow_direction": "current_to_previous",
+      "real_transitions_only": true,
+      "phase": "joint_only"
+    },
+    "edge": {
+      "frames": "latest_only",
+      "operator": "first_order_xy_plus_runtime_grayscale_zero_pad_laplacian",
+      "loss": "sharp_gradient_and_laplacian_l1",
+      "weight": 0.05,
+      "phase": "joint_only"
+    },
+    "laplacian_gate": {
+      "reference": "evssm_latest_frame",
+      "loss": "relative_log_variance_hinge",
+      "minimum_relative_gain": 0.0,
+      "variance_floor": 0.000001,
+      "runtime_gate_alignment": "rgb_mean_then_four_neighbour_zero_pad_laplacian_unbiased_variance",
+      "weight": 0.02,
+      "phase": "joint_only"
+    },
+    "legacy_latest_evssm_distillation": {
+      "loss": "l1",
+      "weight": 0.0,
+      "phase": "joint_only"
+    },
+    "phase_loss_rule": "alignment-only optimizes the alignment loss with the v3 base frozen; joint training optimizes the full v3 objective plus 0.05 times the alignment loss"
+  },
+  "evaluation": {
+    "history": 3,
+    "full_resolution": true,
+    "prefix_padding": "repeat_first_frame_on_left",
+    "quality_and_temporal_fields": "preserve_every_v3_field_and_definition",
+    "controls": {
+      "repeat_current": "supply the current EVSSM frame at all three history positions",
+      "alignment_disabled": "run the identical v4 weights and input history while bypassing feature alignment"
+    },
+    "alignment_diagnostics": {
+      "transition_identity": "one newest real adjacent transition per noninitial source frame; repeated prefix padding is excluded",
+      "transition_count": 14,
+      "flow_statistic": "L2 vector magnitude over all finite transition pixels",
+      "flow_quantile": "linear p95 over the concatenated finite magnitudes",
+      "flow_quarter_fields": [
+        "p95",
+        "max"
+      ],
+      "flow_input_fields": [
+        "p95",
+        "max"
+      ],
+      "input_scale_rule": "dx_input=dx_quarter*input_width/flow_width and dy_input=dy_quarter*input_height/flow_height before L2 magnitude",
+      "confidence_fields": [
+        "mean",
+        "p05",
+        "p50",
+        "p95",
+        "min",
+        "max"
+      ],
+      "warp_valid_fields": [
+        "mean",
+        "min",
+        "max"
+      ],
+      "required_integrity": {
+        "transition_count_exact": 14,
+        "finite_fraction": 1.0,
+        "flow_component_abs_quarter_max": 16.0,
+        "confidence_range": [
+          0.0,
+          1.0
+        ],
+        "warp_valid_range": [
+          0.0,
+          1.0
+        ],
+        "quarter_to_input_scale_consistency_absolute_tolerance": 0.00001
+      },
+      "performance_thresholds_registered": false,
+      "reason": "alignment statistics diagnose use and integrity; checkpoint selection remains governed by the unchanged scientific quality/history gates"
+    }
+  },
+  "selection": {
+    "required_deployment_selector": "motion_aligned_evssm_multimetric_gate.v1",
+    "rule": "v4 must pass the unchanged v3 Layer1 scientific gates and alignment diagnostic integrity before room2 may be opened",
+    "scientific_thresholds_identical_to_v3": true,
+    "oracle_good_definition": {
+      "delta_psnr_db_min": -0.02,
+      "delta_ssim_min": -0.0002,
+      "relative_l1_max": 0.005
+    },
+    "temporal_validation": {
+      "steady_psnr_delta_db_min": 0.1,
+      "steady_ssim_delta_min": 0.0,
+      "steady_relative_l1_delta_max": -0.005,
+      "steady_gt_temporal_difference_relative_delta_max": -0.01,
+      "normal_vs_repeat_current_psnr_delta_db_min": 0.05,
+      "normal_vs_repeat_current_temporal_relative_delta_max": -0.01,
+      "normal_vs_history1_psnr_delta_db_min": 0.05,
+      "laplacian_gate_pass_ratio_min": 0.25,
+      "accepted_oracle_precision_min": 0.8,
+      "worst_run_psnr_delta_db_min": -0.1,
+      "prefix_psnr_delta_db_min": -0.02
+    },
+    "room2_one_shot": {
+      "psnr_delta_db_min": 0.05,
+      "ssim_delta_min": 0.0,
+      "relative_l1_delta_max": 0.0,
+      "lpips_delta_max": 0.0,
+      "gt_temporal_difference_delta_max": 0.0,
+      "steady_normal_vs_repeat_current_psnr_delta_db_min": 0.03,
+      "laplacian_gate_pass_ratio_min": 0.2,
+      "accepted_oracle_precision_min": 0.8,
+      "nondegraded_long_runs_min": 10,
+      "long_runs_total": 16,
+      "worst_run_psnr_delta_db_min": -0.1
+    },
+    "alignment_integrity_is_additional_layer1_requirement": true,
+    "room2_must_not_be_read_or_precomputed_before_layer1_pass": true,
+    "tuning_after_room2_open": false,
+    "v3_selection_reports_accepted_for_v4_export": false
+  },
+  "post_selection": {
+    "tum221_frontend_probe_only_after_room2_pass": true,
+    "formal_export_requires_v4_layered_selection_report": true
+  }
+}
