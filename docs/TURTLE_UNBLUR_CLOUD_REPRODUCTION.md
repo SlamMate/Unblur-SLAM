@@ -36,7 +36,7 @@ frequency 6,000 are unchanged across supported GPU counts.
 ```bash
 git clone https://github.com/SlamMate/Unblur-SLAM.git
 cd Unblur-SLAM
-git checkout <GITHUB_RELEASE_COMMIT>
+git checkout experiment/turtle-unblur-cloud-v1
 
 export UNBLUR_ARTIFACT_ROOT=/workspace/unblur-artifacts
 mkdir -p "$UNBLUR_ARTIFACT_ROOT/external" "$UNBLUR_ARTIFACT_ROOT/pretrained/turtle"
@@ -64,7 +64,7 @@ owner repository.
 ```bash
 python scripts/prepare_turtle_unblur_cloud_data.py \
   --artifact-root "$UNBLUR_ARTIFACT_ROOT" \
-  --bundle-revision <HF_BUNDLE_COMMIT>
+  --bundle-revision 7efc8be1fce6b958eac7af1457f7376b5608e408
 ```
 
 Expected source identities:
@@ -72,7 +72,7 @@ Expected source identities:
 - `snah/REDS@62dc25d16e6f43d2214f1b365023abda86f7a0ae`
 - `snah/GOPRO_Large@592978466ae510d2734b199cad2fc79a346bda1c`
 - `qizhangslam/Unblur_slam_traning_dataset@1f9d98158c3f27f6ec6de45ee2874c9caf2a2c59`
-- preprocessing bundle: `qizhangslam/Unblur_slam_traning_dataset@<HF_BUNDLE_COMMIT>`
+- preprocessing bundle: `qizhangslam/Unblur_slam_traning_dataset@7efc8be1fce6b958eac7af1457f7376b5608e408`
 
 The GoPro archive contains test members, but the preparation script extracts
 only `train/*`.  No GoPro test image is decoded, hashed, evaluated, or used.
