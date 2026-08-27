@@ -42,6 +42,17 @@ EXPECTED = (
     },
 )
 
+# These two A6000s sit behind a SYS PCIe/CPU path.  CUDA reports peer access,
+# but a real two-rank NCCL all-reduce hangs indefinitely on NCCL's default P2P
+# transport.  The pinned local launcher therefore uses NCCL shared memory and
+# records the exact transport override in every runtime receipt.  This changes
+# transport only; DDP's reduced gradients and global-batch semantics are
+# unchanged.
+NCCL_TRANSPORT_ENV = {
+    "NCCL_P2P_DISABLE": "1",
+    "NCCL_SHM_DISABLE": "0",
+}
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -128,6 +139,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         environment = dict(os.environ)
         environment["CUDA_VISIBLE_DEVICES"] = "0,1"
         environment["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+        environment.update(NCCL_TRANSPORT_ENV)
         started = time.perf_counter()
         result = subprocess.run(
             command, stdin=subprocess.DEVNULL, env=environment, check=False
@@ -154,6 +166,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "child_environment": {
             "CUDA_VISIBLE_DEVICES": "0,1",
             "CUDA_DEVICE_ORDER": "PCI_BUS_ID",
+            **NCCL_TRANSPORT_ENV,
         },
         "distributed": {
             "world_size": 2,

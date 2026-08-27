@@ -41,6 +41,15 @@ class DualGpuLauncherContracts(unittest.TestCase):
             self.assertEqual(
                 run_mock.call_args.kwargs["env"]["CUDA_VISIBLE_DEVICES"], "0,1"
             )
+            self.assertEqual(
+                run_mock.call_args.kwargs["env"]["NCCL_P2P_DISABLE"], "1"
+            )
+            self.assertEqual(
+                run_mock.call_args.kwargs["env"]["NCCL_SHM_DISABLE"], "0"
+            )
+            self.assertEqual(
+                report["child_environment"]["NCCL_P2P_DISABLE"], "1"
+            )
             self.assertEqual(json.loads(args.audit_report.read_text())["status"], "complete")
             with self.assertRaises(FileExistsError):
                 launcher.run(args)
